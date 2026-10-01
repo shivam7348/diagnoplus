@@ -37,6 +37,10 @@
   .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .hint{font-size:11px;line-height:1.4;color:var(--muted);margin-top:5px}
   .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .doctor-actions{display:flex;gap:8px;align-items:flex-end}
+  .doctor-actions select{flex:1}
+  .doctor-actions button{white-space:nowrap;min-height:38px}
+  .is-hidden{display:none!important}
   button{border:0;border-radius:9px;padding:10px 13px;cursor:pointer;font-weight:700}
   .btn-primary{background:var(--accent);color:#171717}
   .btn-primary:hover{background:var(--accent-dark);color:#fff}
@@ -148,6 +152,15 @@
           <input id="reportDate" type="date" />
         </div>
 
+        <div class="field">
+          <label>Doctor</label>
+          <div class="doctor-actions">
+            <select id="doctorSelect" disabled><option value="">All Doctors</option></select>
+            <button id="doctorReportBtn" class="btn-primary is-hidden" type="button">Show Doctor Data</button>
+          </div>
+          <div class="hint">Select a doctor to show only that doctor's data.</div>
+        </div>
+
         <div class="switchline"><input id="filterDates" type="checkbox" checked /> <span>Filter rows by From/To date</span></div>
         <div class="switchline"><input id="grossFormula" type="checkbox" checked /> <span>If Gross Amt column is unavailable, calculate <b>Amount - CPT</b></span></div>
         <div class="switchline"><input id="blankAffWalkin" type="checkbox" /> <span>Fill blank Affiliation as <b>Walk_In</b></span></div>
@@ -231,6 +244,8 @@
   const generateBtn = el('generateBtn');
   const printBtn = el('printBtn');
   const autoMapBtn = el('autoMapBtn');
+  const doctorSelect = el('doctorSelect');
+  const doctorReportBtn = el('doctorReportBtn');
   const statusBox = el('status');
 
   function norm(s){
@@ -349,7 +364,7 @@
   }
 
   function autoMap(){
-    if(!headers.length) return;
+    if(!headers.length){ populateDoctors(); return; }
     REPORT_FIELDS.forEach(f => {
       const sel=el(`map_${f.key}`); if(!sel) return;
       let found=findHeader(f.key);
@@ -359,7 +374,28 @@
       else if(f.key==='gross') sel.value='__formula__';
       else sel.value='__blank__';
     });
+    populateDoctors();
     showStatus('Columns auto-mapped. Please review CPT and Gross Amt mapping once.', 'ok');
+  }
+
+  function populateDoctors(){
+    const affiliationMap=el('map_affiliation')?.value;
+    const previous=doctorSelect.value;
+    const doctors = affiliationMap && !affiliationMap.startsWith('__')
+      ? [...new Set(rawRows.map(r=>String(r[affiliationMap] ?? '').trim()).filter(Boolean))]
+          .sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}))
+      : [];
+
+    doctorSelect.innerHTML='<option value="">All Doctors</option>';
+    doctors.forEach(name=>{
+      const option=document.createElement('option');
+      option.value=name;
+      option.textContent=name;
+      doctorSelect.appendChild(option);
+    });
+    doctorSelect.disabled=!doctors.length;
+    if(doctors.includes(previous)) doctorSelect.value=previous;
+    doctorReportBtn.classList.toggle('is-hidden', !doctorSelect.value);
   }
 
   // ---------- Built-in offline XLSX reader ----------
@@ -599,6 +635,11 @@
 
     rows = rows.filter(r => norm(getVal(r,map.sr,'')) !== 'total' && norm(getVal(r,map.patient,'')) !== 'total');
 
+    const selectedDoctor=doctorSelect.value;
+    if(selectedDoctor && map.affiliation && !map.affiliation.startsWith('__')){
+      rows=rows.filter(r=>norm(getVal(r,map.affiliation,''))===norm(selectedDoctor));
+    }
+
     return rows.map((r,i)=>{
       const amount=toNum(getVal(r,map.amount,0));
       const cpt=toNum(getVal(r,map.cpt,0));
@@ -759,6 +800,14 @@
   sheetSelect.addEventListener('change',()=>loadSheet(sheetSelect.value));
   autoMapBtn.addEventListener('click',autoMap);
   generateBtn.addEventListener('click',generate);
+  mappingBody.addEventListener('change',e=>{
+    if(e.target.id==='map_affiliation') populateDoctors();
+  });
+  doctorSelect.addEventListener('change',()=>{
+    doctorReportBtn.classList.toggle('is-hidden', !doctorSelect.value);
+    if(!doctorSelect.value && rawRows.length) generate();
+  });
+  doctorReportBtn.addEventListener('click',generate);
   printBtn.addEventListener('click',()=>window.print());
 
   ['centerName','fromDate','toDate','reportDate','filterDates','grossFormula','blankAffWalkin'].forEach(id=>{
