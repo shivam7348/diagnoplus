@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Complement Details - Excel Report Generator</title>
+<!-- Offline XLSX/CSV parser is built into this file. No external library required. -->
+<style>
+  :root{
+    --accent:#ff9638;
+    --accent-dark:#e77d1f;
+    --ink:#1c2430;
+    --muted:#667085;
+    --border:#d9dee7;
+    --panel:#ffffff;
+    --bg:#f4f6f9;
+    --soft:#fff5eb;
+    --danger:#b42318;
+    --success:#067647;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink)}
+  .app{max-width:1500px;margin:0 auto;padding:20px}
+  .hero{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;background:linear-gradient(135deg,#fff,#fff7ef);border:1px solid #f2dfcd;border-radius:16px;padding:20px 22px;margin-bottom:16px;box-shadow:0 6px 20px rgba(16,24,40,.05)}
+  .hero h1{margin:0 0 6px;font-size:24px}
+  .hero p{margin:0;color:var(--muted);line-height:1.45}
+  .badge{background:var(--accent);color:#111;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+  .grid{display:grid;grid-template-columns:410px 1fr;gap:16px;align-items:start}
+  .panel{background:var(--panel);border:1px solid var(--border);border-radius:14px;box-shadow:0 4px 14px rgba(16,24,40,.04);overflow:hidden}
+  .panel-title{padding:13px 15px;border-bottom:1px solid var(--border);font-weight:700;background:#fbfcfd;display:flex;justify-content:space-between;align-items:center}
+  .panel-body{padding:15px}
+  .field{margin-bottom:12px}
+  label{display:block;font-size:12px;font-weight:700;margin-bottom:5px;color:#344054}
+  input,select,button{font:inherit}
+  input[type=text],input[type=date],input[type=file],select{width:100%;border:1px solid #cfd6e2;border-radius:8px;padding:9px 10px;background:#fff;color:#111;min-height:38px}
+  input:focus,select:focus{outline:2px solid rgba(255,150,56,.25);border-color:var(--accent)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .hint{font-size:11px;line-height:1.4;color:var(--muted);margin-top:5px}
+  .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  button{border:0;border-radius:9px;padding:10px 13px;cursor:pointer;font-weight:700}
+  .btn-primary{background:var(--accent);color:#171717}
+  .btn-primary:hover{background:var(--accent-dark);color:#fff}
+  .btn-secondary{background:#eef1f5;color:#263238}
+  .btn-outline{background:#fff;border:1px solid #cfd6e2;color:#344054}
+  .btn-danger{background:#fff1f0;color:var(--danger);border:1px solid #f7c7c3}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .status{border-radius:9px;padding:9px 10px;font-size:12px;margin-top:10px;display:none}
+  .status.ok{display:block;background:#ecfdf3;color:var(--success);border:1px solid #abefc6}
+  .status.warn{display:block;background:#fffaeb;color:#b54708;border:1px solid #fedf89}
+  .status.err{display:block;background:#fef3f2;color:var(--danger);border:1px solid #fecdca}
+  .mapping-wrap{max-height:440px;overflow:auto;border:1px solid #e4e7ec;border-radius:10px}
+  table.mapping{width:100%;border-collapse:collapse;font-size:12px}
+  table.mapping th{position:sticky;top:0;background:#f8fafc;z-index:2}
+  table.mapping th,table.mapping td{padding:7px;border-bottom:1px solid #eceff3;text-align:left;vertical-align:middle}
+  table.mapping select{padding:6px 7px;min-height:32px;font-size:12px}
+  .mini{font-size:10px;color:var(--muted);margin-top:3px}
+  .preview-shell{padding:13px;background:#e9edf2;min-height:720px;overflow:auto}
+  .preview-note{font-size:12px;color:#475467;padding:8px 12px;background:#fff;border-bottom:1px solid var(--border)}
+  #pages{display:flex;flex-direction:column;align-items:center;gap:16px}
+
+  /* Report page */
+  .report-page{width:210mm;height:297mm;background:white;padding:7mm 3mm 7mm 3mm;box-shadow:0 4px 18px rgba(16,24,40,.15);position:relative;overflow:hidden;color:#000}
+  .report-date-box{position:absolute;left:4mm;top:7mm;border:1px solid #000;padding:2.1mm 3mm;font-size:9pt;line-height:1;min-width:27mm;text-align:center}
+  .report-title{text-align:center;font-weight:700;font-size:16pt;margin:0 0 4.8mm}
+  .report-meta{display:flex;justify-content:space-between;gap:8mm;align-items:flex-end;font-size:9pt;margin:0 2mm 1.6mm}
+  .center-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:117mm}
+  .center-label b{font-weight:700}
+  .range-label{white-space:nowrap}
+  .range-label b{margin:0 4mm}
+  .report-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:7.25pt;line-height:1.15}
+  .report-table col.sr{width:2.4%}
+  .report-table col.lcode{width:6.1%}
+  .report-table col.date{width:7.3%}
+  .report-table col.patient{width:14.9%}
+  .report-table col.test{width:19.5%}
+  .report-table col.aff{width:8.3%}
+  .report-table col.amount{width:5.7%}
+  .report-table col.disc{width:5.1%}
+  .report-table col.net{width:5.6%}
+  .report-table col.paid{width:5.4%}
+  .report-table col.bal{width:5.3%}
+  .report-table col.cpt{width:6.7%}
+  .report-table col.gross{width:7.7%}
+  .report-table thead th{background:var(--accent);padding:1.2mm .8mm;font-weight:700;text-align:left;white-space:nowrap;border:none;font-size:7.1pt}
+  .report-table tbody td{padding:1.05mm .8mm .35mm;vertical-align:top;border:none;overflow-wrap:anywhere;word-break:normal}
+  .report-table td.num,.report-table th.num{text-align:right;white-space:nowrap}
+  .report-table td.center{text-align:center}
+  .report-table .totals td{font-weight:700;border-top:1px solid #000;padding-top:1.4mm}
+  .page-footer{position:absolute;left:3mm;right:3mm;bottom:3.2mm;height:5mm;border-top:1px solid #000;text-align:center;padding-top:1.6mm;font-size:8.3pt}
+  .empty-preview{width:min(800px,95%);margin:45px auto;background:#fff;border:1px dashed #b8c0cc;border-radius:14px;padding:36px;text-align:center;color:#667085}
+  .empty-preview strong{display:block;color:#344054;font-size:18px;margin-bottom:7px}
+
+  .switchline{display:flex;align-items:center;gap:7px;font-size:12px;color:#344054;margin:8px 0}
+  .switchline input{width:auto}
+
+  @media(max-width:1100px){.grid{grid-template-columns:1fr}.preview-shell{min-height:500px}}
+
+  @media print{
+    body{background:#fff}
+    .app>.hero,.grid>.panel:first-child,.preview-note{display:none!important}
+    .app,.grid,.panel,.preview-shell{display:block!important;max-width:none!important;width:auto!important;padding:0!important;margin:0!important;border:0!important;box-shadow:none!important;background:#fff!important}
+    #pages{gap:0!important;display:block!important}
+    .report-page{box-shadow:none!important;margin:0!important;break-after:page;page-break-after:always}
+    .report-page:last-child{break-after:auto;page-break-after:auto}
+    @page{size:A4 portrait;margin:0}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="hero">
+    <div>
+      <h1>Complement Details - Excel to Report</h1>
+      <p>Upload an Excel file, map columns, preview the report in the same structure, then print/save it as PDF.</p>
+    </div>
+    <div class="badge">A4 PRINT READY</div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-title">1. Upload & Settings <span id="rowCount" class="mini">No data</span></div>
+      <div class="panel-body">
+        <div class="field">
+          <label>Excel file (.xlsx / .xls)</label>
+          <input id="fileInput" type="file" accept=".xlsx,.xlsm,.csv" />
+          <div class="hint">Supports .xlsx/.xlsm/.csv. The first row is read as column headings. Works offline.</div>
+        </div>
+        <div class="field">
+          <label>Sheet</label>
+          <select id="sheetSelect" disabled><option>Select file first</option></select>
+        </div>
+        <div class="field">
+          <label>Collection Center Name</label>
+          <input id="centerName" type="text" value="Diagnoplus pathology(Nagpur)" />
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>From Date</label>
+            <input id="fromDate" type="date" />
+          </div>
+          <div class="field">
+            <label>To Date</label>
+            <input id="toDate" type="date" />
+          </div>
+        </div>
+        <div class="field">
+          <label>Report Date (top-left box)</label>
+          <input id="reportDate" type="date" />
+        </div>
+
+        <div class="switchline"><input id="filterDates" type="checkbox" checked /> <span>Filter rows by From/To date</span></div>
+        <div class="switchline"><input id="grossFormula" type="checkbox" checked /> <span>If Gross Amt column is unavailable, calculate <b>Amount - CPT</b></span></div>
+        <div class="switchline"><input id="blankAffWalkin" type="checkbox" /> <span>Fill blank Affiliation as <b>Walk_In</b></span></div>
+
+        <div class="actions">
+          <button id="autoMapBtn" class="btn-secondary" disabled>Auto Map</button>
+          <button id="generateBtn" class="btn-primary" disabled>Generate Report</button>
+          <button id="printBtn" class="btn-outline" disabled>Print / Save PDF</button>
+        </div>
+        <div id="status" class="status"></div>
+      </div>
+
+      <div class="panel-title">2. Column Mapping</div>
+      <div class="panel-body">
+        <div class="hint" style="margin:0 0 8px">Auto-mapping is already tuned for your Billing Table format. Change any dropdown if a future sheet uses different columns.</div>
+        <div class="mapping-wrap">
+          <table class="mapping">
+            <thead><tr><th>Report field</th><th>Excel column / rule</th></tr></thead>
+            <tbody id="mappingBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">Report Preview <span class="mini">Same data structure as the reference PDF</span></div>
+      <div class="preview-note">Tip: after generating, use <b>Print / Save PDF</b>. In the print dialog choose A4, Portrait, Scale 100%, and disable browser headers/footers.</div>
+      <div class="preview-shell">
+        <div id="pages">
+          <div class="empty-preview"><strong>No report generated yet</strong>Upload the Excel file, check mapping, then click Generate Report.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+
+  const REPORT_FIELDS = [
+    {key:'sr', label:'Sr. No.', mode:'special'},
+    {key:'lcode', label:'LCode', mode:'special'},
+    {key:'date', label:'Date'},
+    {key:'patient', label:'Patient Name'},
+    {key:'test', label:'Test'},
+    {key:'affiliation', label:'Affiliation'},
+    {key:'amount', label:'Amount', numeric:true},
+    {key:'disc', label:'Disc', numeric:true},
+    {key:'net', label:'Net', numeric:true},
+    {key:'paid', label:'Paid', numeric:true},
+    {key:'bal', label:'Bal.', numeric:true},
+    {key:'cpt', label:'CPT', numeric:true},
+    {key:'gross', label:'Gross Amt', numeric:true, mode:'special'}
+  ];
+
+  const aliases = {
+    sr:['sr no','sr. no.','sr no.','sno','serial no','serial number','#'],
+    lcode:['lcode','l code','lab code','labcode','code'],
+    date:['date','bill date','billing date','visit date','created date'],
+    patient:['patient name','patient info','patient','name','customer name'],
+    test:['test','tests','tests/packages','test/package','test packages','test name','package','package name'],
+    affiliation:['affiliation','referral doctor','ref doctor','doctor','ref. doctor','reference doctor','referred by','source'],
+    amount:['amount','gross amount','bill amount','total amount'],
+    disc:['disc','discount','discount amount'],
+    net:['net','net amount','net amt','final amount'],
+    paid:['paid','paid amount','received','received amount'],
+    bal:['bal','balance','due','due amount','balance amount'],
+    cpt:['cpt','cost','cost price','ref. doctor(commission)','ref doctor commission','commission','doctor commission'],
+    gross:['gross amt','gross amount after cpt','gross margin','margin amount']
+  };
+
+  let workbook = null;
+  let rawRows = [];
+  let headers = [];
+
+  const el = id => document.getElementById(id);
+  const fileInput = el('fileInput');
+  const sheetSelect = el('sheetSelect');
+  const mappingBody = el('mappingBody');
+  const generateBtn = el('generateBtn');
+  const printBtn = el('printBtn');
+  const autoMapBtn = el('autoMapBtn');
+  const statusBox = el('status');
+
+  function norm(s){
+    return String(s ?? '').trim().toLowerCase().replace(/[._-]+/g,' ').replace(/\s+/g,' ');
+  }
+
+  function esc(s){
+    return String(s ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+  }
+
+  function showStatus(message, type='ok'){
+    statusBox.textContent = message;
+    statusBox.className = `status ${type}`;
+  }
+
+  function hideStatus(){ statusBox.className = 'status'; statusBox.textContent=''; }
+
+  function localDateISO(d=new Date()){
+    const y=d.getFullYear(); const m=String(d.getMonth()+1).padStart(2,'0'); const day=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  el('reportDate').value = localDateISO();
+
+  function parseDate(value){
+    if(value === null || value === undefined || value === '') return null;
+    if(value instanceof Date && !isNaN(value)) return new Date(value.getFullYear(),value.getMonth(),value.getDate());
+    const s=String(value).trim();
+    let m=s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/);
+    if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+    m=s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})$/);
+    if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+    const d=new Date(s);
+    return isNaN(d) ? null : new Date(d.getFullYear(),d.getMonth(),d.getDate());
+  }
+
+  function fmtDisplayDate(value){
+    const d=parseDate(value);
+    if(!d) return String(value ?? '');
+    const mon=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getMonth()];
+    return `${d.getDate()}-${mon}-${d.getFullYear()}`;
+  }
+
+  function fmtDMY(value){
+    const d=parseDate(value);
+    if(!d) return '';
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  }
+
+  function dateToISO(value){
+    const d=parseDate(value);
+    if(!d) return '';
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  }
+
+  function toNum(v){
+    if(v === null || v === undefined || v === '') return 0;
+    if(typeof v === 'number') return Number.isFinite(v) ? v : 0;
+    const n=Number(String(v).replace(/,/g,'').replace(/[₹\s]/g,''));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function fmtNum(n){
+    const x=toNum(n);
+    const integer=Math.abs(x-Math.round(x))<0.000001;
+    return x.toLocaleString('en-IN',{minimumFractionDigits:integer?0:2,maximumFractionDigits:2});
+  }
+
+  function fmtMoney2(n){
+    const x=toNum(n);
+    return x.toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+
+  function findHeader(field){
+    const targets = aliases[field] || [];
+    const normalizedHeaders = headers.map(h=>norm(h));
+    for(const a of targets){
+      const idx=normalizedHeaders.indexOf(norm(a));
+      if(idx>=0) return headers[idx];
+    }
+    for(const a of targets){
+      const an=norm(a);
+      const idx=normalizedHeaders.findIndex(h => {
+        if(h.includes(an)) return true;
+        // Reverse partial matching is allowed only for reasonably specific names.
+        // This prevents a generic column like "Amount" being mistaken for "Gross Amount".
+        return h.length >= 8 && an.includes(h) && (an.length-h.length) <= 4;
+      });
+      if(idx>=0) return headers[idx];
+    }
+    return '';
+  }
+
+  function makeMappingUI(){
+    mappingBody.innerHTML='';
+    REPORT_FIELDS.forEach(f => {
+      const tr=document.createElement('tr');
+      const td1=document.createElement('td'); td1.innerHTML=`<b>${esc(f.label)}</b>${f.mode==='special'?'<div class="mini">can be generated</div>':''}`;
+      const td2=document.createElement('td');
+      const sel=document.createElement('select');
+      sel.id=`map_${f.key}`;
+      let options='';
+      if(f.key==='sr') options += '<option value="__seq__">Auto sequential</option>';
+      else if(f.key==='lcode') options += '<option value="__lcode_seq__">Auto 3-digit code</option><option value="__blank__">Leave blank</option>';
+      else if(f.key==='gross') options += '<option value="__formula__">Formula / auto</option><option value="__blank__">Leave blank</option>';
+      else options += '<option value="__blank__">Leave blank / zero</option>';
+      headers.forEach(h => options += `<option value="${escAttr(h)}">${esc(h)}</option>`);
+      sel.innerHTML=options;
+      td2.appendChild(sel);
+      tr.append(td1,td2); mappingBody.appendChild(tr);
+    });
+    autoMap();
+  }
+
+  function escAttr(s){
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function autoMap(){
+    if(!headers.length) return;
+    REPORT_FIELDS.forEach(f => {
+      const sel=el(`map_${f.key}`); if(!sel) return;
+      let found=findHeader(f.key);
+      if(found) sel.value=found;
+      else if(f.key==='sr') sel.value='__seq__';
+      else if(f.key==='lcode') sel.value='__lcode_seq__';
+      else if(f.key==='gross') sel.value='__formula__';
+      else sel.value='__blank__';
+    });
+    showStatus('Columns auto-mapped. Please review CPT and Gross Amt mapping once.', 'ok');
+  }
+
+  // ---------- Built-in offline XLSX reader ----------
+  const utf8 = new TextDecoder('utf-8');
+
+  function u16(dv,o){ return dv.getUint16(o,true); }
+  function u32(dv,o){ return dv.getUint32(o,true); }
+
+  function normalizeZipPath(path){
+    const parts=[];
+    String(path||'').replace(/^\/+/, '').split('/').forEach(part=>{
+      if(!part || part==='.') return;
+      if(part==='..') parts.pop(); else parts.push(part);
+    });
+    return parts.join('/');
+  }
+
+  async function unzipEntries(arrayBuffer){
+    const bytes=new Uint8Array(arrayBuffer), dv=new DataView(arrayBuffer);
+    let eocd=-1;
+    for(let i=bytes.length-22;i>=Math.max(0,bytes.length-65557);i--){
+      if(u32(dv,i)===0x06054b50){ eocd=i; break; }
+    }
+    if(eocd<0) throw new Error('Invalid XLSX/ZIP file.');
+    const total=u16(dv,eocd+10), centralOffset=u32(dv,eocd+16);
+    const entries=new Map();
+    let pos=centralOffset;
+    for(let n=0;n<total;n++){
+      if(u32(dv,pos)!==0x02014b50) throw new Error('Invalid ZIP central directory.');
+      const method=u16(dv,pos+10), compSize=u32(dv,pos+20);
+      const nameLen=u16(dv,pos+28), extraLen=u16(dv,pos+30), commentLen=u16(dv,pos+32);
+      const localOffset=u32(dv,pos+42);
+      const name=utf8.decode(bytes.slice(pos+46,pos+46+nameLen));
+      entries.set(normalizeZipPath(name),{method,compSize,localOffset});
+      pos += 46+nameLen+extraLen+commentLen;
+    }
+    async function read(name){
+      name=normalizeZipPath(name);
+      const ent=entries.get(name); if(!ent) return null;
+      const p=ent.localOffset;
+      if(u32(dv,p)!==0x04034b50) throw new Error('Invalid ZIP local header.');
+      const nameLen=u16(dv,p+26), extraLen=u16(dv,p+28);
+      const start=p+30+nameLen+extraLen;
+      const chunk=bytes.slice(start,start+ent.compSize);
+      if(ent.method===0) return chunk;
+      if(ent.method===8){
+        if(typeof DecompressionStream==='undefined') throw new Error('This browser cannot decompress XLSX files. Please use current Chrome/Edge.');
+        const ds=new DecompressionStream('deflate-raw');
+        const stream=new Blob([chunk]).stream().pipeThrough(ds);
+        return new Uint8Array(await new Response(stream).arrayBuffer());
+      }
+      throw new Error('Unsupported ZIP compression method: '+ent.method);
+    }
+    return {entries,read};
+  }
+
+  function xmlDoc(text){
+    const x=new DOMParser().parseFromString(text,'application/xml');
+    const err=x.querySelector('parsererror');
+    if(err) throw new Error('Invalid XML inside workbook.');
+    return x;
+  }
+
+  function allText(node, tag='t'){
+    return [...node.getElementsByTagName(tag)].map(x=>x.textContent||'').join('');
+  }
+
+  function colIndexFromRef(ref){
+    const m=String(ref||'').match(/^([A-Z]+)/i); if(!m) return 0;
+    let n=0; for(const ch of m[1].toUpperCase()) n=n*26+(ch.charCodeAt(0)-64);
+    return n-1;
+  }
+
+  function excelSerialToDate(n){
+    const ms=Math.round((Number(n)-25569)*86400*1000);
+    const d=new Date(ms);
+    return new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate());
+  }
+
+  function looksLikeDateFormat(fmt){
+    if(!fmt) return false;
+    const cleaned=String(fmt).replace(/\\./g,'').replace(/"[^"]*"/g,'').replace(/\[[^\]]*\]/g,'').toLowerCase();
+    return /(^|[^a-z])[dmyhs]{1,4}([^a-z]|$)/.test(cleaned) || /dd|mm|yy|yyyy|hh|ss/.test(cleaned);
+  }
+
+  async function parseXlsx(file){
+    const zip=await unzipEntries(await file.arrayBuffer());
+    const readText=async name=>{ const b=await zip.read(name); return b?utf8.decode(b):null; };
+
+    const wbText=await readText('xl/workbook.xml');
+    const relText=await readText('xl/_rels/workbook.xml.rels');
+    if(!wbText || !relText) throw new Error('Workbook structure not found.');
+    const wbXml=xmlDoc(wbText), relXml=xmlDoc(relText);
+    const rels={};
+    [...relXml.getElementsByTagName('Relationship')].forEach(r=>rels[r.getAttribute('Id')]=r.getAttribute('Target'));
+
+    let shared=[];
+    const ssText=await readText('xl/sharedStrings.xml');
+    if(ssText){
+      const sx=xmlDoc(ssText);
+      shared=[...sx.getElementsByTagName('si')].map(si=>allText(si,'t'));
+    }
+
+    const builtinDateIds=new Set([14,15,16,17,18,19,20,21,22,27,30,36,45,46,47,50,57]);
+    let styleIsDate=[];
+    const stText=await readText('xl/styles.xml');
+    if(stText){
+      const st=xmlDoc(stText), custom={};
+      [...st.getElementsByTagName('numFmt')].forEach(n=>custom[+n.getAttribute('numFmtId')]=n.getAttribute('formatCode')||'');
+      const xfs=st.getElementsByTagName('cellXfs')[0];
+      if(xfs){
+        styleIsDate=[...xfs.getElementsByTagName('xf')].map(xf=>{
+          const id=+(xf.getAttribute('numFmtId')||0);
+          return builtinDateIds.has(id) || looksLikeDateFormat(custom[id]);
+        });
+      }
+    }
+
+    const sheets=[];
+    for(const sh of [...wbXml.getElementsByTagName('sheet')]){
+      const name=sh.getAttribute('name')||'Sheet';
+      const rid=sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+      let target=rels[rid];
+      if(!target) continue;
+      if(target.startsWith('/')) target=target.slice(1); else target='xl/'+target;
+      target=normalizeZipPath(target);
+      const text=await readText(target); if(!text) continue;
+      const sx=xmlDoc(text), rows=[];
+      const rowNodes=[...sx.getElementsByTagName('row')];
+      for(const rowNode of rowNodes){
+        const arr=[];
+        for(const c of [...rowNode.getElementsByTagName('c')]){
+          const idx=colIndexFromRef(c.getAttribute('r'));
+          const type=c.getAttribute('t')||'';
+          const style=+(c.getAttribute('s')||0);
+          const vNode=c.getElementsByTagName('v')[0];
+          let val='';
+          if(type==='inlineStr') val=allText(c,'t');
+          else if(type==='s') val=shared[+(vNode?.textContent||0)] ?? '';
+          else if(type==='b') val=(vNode?.textContent==='1');
+          else if(type==='str' || type==='e') val=vNode?.textContent || '';
+          else if(vNode){
+            const raw=vNode.textContent||''; const num=Number(raw);
+            if(raw!=='' && Number.isFinite(num)) val=styleIsDate[style] ? excelSerialToDate(num) : num;
+            else val=raw;
+          }
+          arr[idx]=val;
+        }
+        rows.push(arr.map(v=>v===undefined?'':v));
+      }
+      sheets.push({name,rows});
+    }
+    if(!sheets.length) throw new Error('No readable worksheets found.');
+    return {SheetNames:sheets.map(s=>s.name),SheetsData:Object.fromEntries(sheets.map(s=>[s.name,s.rows]))};
+  }
+
+  function parseCsvLine(line){
+    const out=[]; let cur='', q=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){
+        if(q && line[i+1]==='"'){ cur+='"'; i++; } else q=!q;
+      }else if(ch===',' && !q){ out.push(cur); cur=''; }
+      else cur+=ch;
+    }
+    out.push(cur); return out;
+  }
+
+  async function parseCsv(file){
+    const text=await file.text();
+    const rows=text.replace(/^\uFEFF/,'').split(/\r?\n/).filter((x,i,a)=>x!=='' || i<a.length-1).map(parseCsvLine);
+    return {SheetNames:['CSV'],SheetsData:{CSV:rows}};
+  }
+
+  async function loadFile(file){
+    hideStatus();
+    try{
+      const ext=(file.name.split('.').pop()||'').toLowerCase();
+      if(ext==='xls') throw new Error('Old .xls format is not supported. Please Save As .xlsx first.');
+      workbook = ext==='csv' ? await parseCsv(file) : await parseXlsx(file);
+      sheetSelect.innerHTML='';
+      workbook.SheetNames.forEach(n => {
+        const o=document.createElement('option'); o.value=n; o.textContent=n; sheetSelect.appendChild(o);
+      });
+      sheetSelect.disabled=false;
+      await loadSheet(sheetSelect.value);
+      autoMapBtn.disabled=false; generateBtn.disabled=false;
+      showStatus(`Loaded: ${file.name}`, 'ok');
+    }catch(err){
+      console.error(err); showStatus('Could not read the Excel file: '+err.message, 'err');
+    }
+  }
+
+  async function loadSheet(name){
+    if(!workbook) return;
+    const arr=workbook.SheetsData[name] || [];
+    if(!arr.length){ headers=[]; rawRows=[]; makeMappingUI(); return; }
+    headers=arr[0].map((h,i)=> String(h || `Column ${i+1}`).trim());
+    rawRows=arr.slice(1).filter(r=>r.some(v=>String(v ?? '').trim()!==''))
+      .map(r=>Object.fromEntries(headers.map((h,i)=>[h,r[i] ?? ''])));
+
+    el('rowCount').textContent=`${rawRows.length.toLocaleString('en-IN')} rows`;
+    makeMappingUI();
+
+    const dateHeader=findHeader('date');
+    if(dateHeader){
+      const dates=rawRows.map(r=>parseDate(r[dateHeader])).filter(Boolean).sort((a,b)=>a-b);
+      if(dates.length){
+        el('fromDate').value=dateToISO(dates[0]);
+        el('toDate').value=dateToISO(dates[dates.length-1]);
+      }
+    }
+  }
+
+  function getMap(){
+    const m={}; REPORT_FIELDS.forEach(f=>m[f.key]=el(`map_${f.key}`)?.value || '__blank__'); return m;
+  }
+
+  function getVal(row, mapping, fallback=''){
+    if(!mapping || mapping.startsWith('__')) return fallback;
+    return row[mapping] ?? fallback;
+  }
+
+  function transformRows(){
+    const map=getMap();
+    let rows=rawRows.slice();
+    const from=parseDate(el('fromDate').value); const to=parseDate(el('toDate').value);
+    if(el('filterDates').checked && map.date && !map.date.startsWith('__') && (from || to)){
+      rows=rows.filter(r=>{
+        const d=parseDate(r[map.date]);
+        if(!d) return false;
+        if(from && d<from) return false;
+        if(to && d>to) return false;
+        return true;
+      });
+    }
+
+    rows = rows.filter(r => norm(getVal(r,map.sr,'')) !== 'total' && norm(getVal(r,map.patient,'')) !== 'total');
+
+    return rows.map((r,i)=>{
+      const amount=toNum(getVal(r,map.amount,0));
+      const cpt=toNum(getVal(r,map.cpt,0));
+      const grossMapped = getVal(r,map.gross,'');
+      let gross=0;
+      if(map.gross==='__formula__' || map.gross==='__blank__'){
+        gross = el('grossFormula').checked ? amount-cpt : 0;
+      }else gross=toNum(grossMapped);
+      let aff=String(getVal(r,map.affiliation,'') ?? '').trim();
+      if(!aff && el('blankAffWalkin').checked) aff='Walk_In';
+      const sr = map.sr==='__seq__' ? i+1 : (getVal(r,map.sr,i+1) || i+1);
+      let lcode='';
+      if(map.lcode==='__lcode_seq__') lcode=String(i+1).padStart(3,'0');
+      else if(map.lcode==='__blank__') lcode='';
+      else lcode=String(getVal(r,map.lcode,'') ?? '');
+      return {
+        sr,
+        lcode,
+        date:fmtDisplayDate(getVal(r,map.date,'')),
+        rawDate:parseDate(getVal(r,map.date,'')),
+        patient:String(getVal(r,map.patient,'') ?? '').trim(),
+        test:String(getVal(r,map.test,'') ?? '').trim(),
+        affiliation:aff,
+        amount,
+        disc:toNum(getVal(r,map.disc,0)),
+        net:toNum(getVal(r,map.net,0)),
+        paid:toNum(getVal(r,map.paid,0)),
+        bal:toNum(getVal(r,map.bal,0)),
+        cpt,
+        gross
+      };
+    });
+  }
+
+  function headerHTML(){
+    const center=el('centerName').value.trim() || 'Collection Center';
+    const from=fmtDMY(el('fromDate').value).replaceAll('/','-');
+    const to=fmtDMY(el('toDate').value).replaceAll('/','-');
+    const report=fmtDMY(el('reportDate').value);
+    return `
+      <div class="report-date-box">${esc(report)}</div>
+      <div class="report-title">Complement Details</div>
+      <div class="report-meta">
+        <div class="center-label">Collection Center Name&nbsp; <b>${esc(center)}</b></div>
+        <div class="range-label">${esc(from)} <b>To</b> ${esc(to)}</div>
+      </div>`;
+  }
+
+  function tableShellHTML(body=''){
+    return `<table class="report-table">
+      <colgroup>
+        <col class="sr"><col class="lcode"><col class="date"><col class="patient"><col class="test"><col class="aff"><col class="amount"><col class="disc"><col class="net"><col class="paid"><col class="bal"><col class="cpt"><col class="gross">
+      </colgroup>
+      <thead><tr>
+        <th>Sr. No.</th><th>LCode</th><th>Date</th><th>Patient Name</th><th>Test</th><th>Affiliation</th>
+        <th class="num">Amount</th><th class="num">Disc</th><th class="num">Net</th><th class="num">Paid</th><th class="num">Bal.</th><th class="num">CPT</th><th class="num">Gross Amt</th>
+      </tr></thead><tbody>${body}</tbody></table>`;
+  }
+
+  function rowHTML(r, measure=false){
+    return `<tr data-measure="${measure?'1':'0'}">
+      <td class="center">${esc(r.sr)}</td>
+      <td>${esc(r.lcode)}</td>
+      <td>${esc(r.date)}</td>
+      <td>${esc(r.patient)}</td>
+      <td>${esc(r.test)}</td>
+      <td>${esc(r.affiliation)}</td>
+      <td class="num">${fmtNum(r.amount)}</td>
+      <td class="num">${fmtNum(r.disc)}</td>
+      <td class="num">${fmtNum(r.net)}</td>
+      <td class="num">${fmtNum(r.paid)}</td>
+      <td class="num">${fmtNum(r.bal)}</td>
+      <td class="num">${fmtMoney2(r.cpt)}</td>
+      <td class="num">${fmtMoney2(r.gross)}</td>
+    </tr>`;
+  }
+
+  function totalsRow(rows){
+    const s=k=>rows.reduce((a,r)=>a+toNum(r[k]),0);
+    return `<tr class="totals"><td colspan="6"></td>
+      <td class="num">${fmtMoney2(s('amount'))}</td>
+      <td class="num">${fmtMoney2(s('disc'))}</td>
+      <td class="num">${fmtMoney2(s('net'))}</td>
+      <td class="num">${fmtMoney2(s('paid'))}</td>
+      <td class="num">${fmtMoney2(s('bal'))}</td>
+      <td class="num">${fmtMoney2(s('cpt'))}</td>
+      <td class="num">${fmtMoney2(s('gross'))}</td></tr>`;
+  }
+
+  function makePage(bodyHtml, pageNo, totalPages){
+    const d=document.createElement('div');
+    d.className='report-page';
+    d.innerHTML=headerHTML()+tableShellHTML(bodyHtml)+`<div class="page-footer">Page ${pageNo} of ${totalPages}</div>`;
+    return d;
+  }
+
+  function paginate(rows){
+    const pagesEl=el('pages'); pagesEl.innerHTML='';
+    if(!rows.length){
+      pagesEl.innerHTML='<div class="empty-preview"><strong>No rows found</strong>Check date filter and column mapping.</div>';
+      printBtn.disabled=true; return;
+    }
+
+    // Measurement page: same page/table styles, hidden off-screen.
+    const meas=document.createElement('div');
+    meas.className='report-page';
+    meas.style.position='fixed'; meas.style.left='-10000px'; meas.style.top='0'; meas.style.visibility='hidden';
+    meas.innerHTML=headerHTML()+tableShellHTML(rows.map(r=>rowHTML(r,true)).join(''))+'<div class="page-footer">Page 1 of 1</div>';
+    document.body.appendChild(meas);
+    const tbody=meas.querySelector('tbody');
+    const trList=[...tbody.querySelectorAll('tr')];
+    const tableTop=meas.querySelector('.report-table').getBoundingClientRect().top;
+    const footerTop=meas.querySelector('.page-footer').getBoundingClientRect().top;
+    const theadH=meas.querySelector('thead').getBoundingClientRect().height;
+    const available=Math.max(100, footerTop - tableTop - theadH - 4);
+    const heights=trList.map(tr=>Math.max(12,tr.getBoundingClientRect().height));
+    document.body.removeChild(meas);
+
+    const groups=[]; let current=[]; let used=0;
+    rows.forEach((r,i)=>{
+      const h=heights[i] || 18;
+      // Reserve a little room for totals on the final page.
+      const reserve=26;
+      const limit=available - reserve;
+      if(current.length && used+h > limit){ groups.push(current); current=[]; used=0; }
+      current.push(r); used+=h;
+    });
+    if(current.length) groups.push(current);
+
+    // If final totals may overflow, split one or more final rows onto another page.
+    if(groups.length){
+      let final=groups[groups.length-1];
+      const estimate=final.reduce((a,r)=>a+18+Math.ceil(Math.max(r.test.length,r.patient.length)/34)*4,0)+34;
+      if(estimate>available && final.length>1){
+        const moved=final.splice(-Math.max(1,Math.ceil(final.length*.18)));
+        groups.push(moved);
+      }
+    }
+
+    const totalPages=groups.length;
+    groups.forEach((grp,idx)=>{
+      let body=grp.map(r=>rowHTML(r)).join('');
+      if(idx===totalPages-1) body+=totalsRow(rows);
+      pagesEl.appendChild(makePage(body,idx+1,totalPages));
+    });
+    printBtn.disabled=false;
+  }
+
+  function generate(){
+    try{
+      const rows=transformRows();
+      paginate(rows);
+      showStatus(`Report generated with ${rows.length.toLocaleString('en-IN')} row(s).`, rows.length?'ok':'warn');
+    }catch(err){ console.error(err); showStatus('Could not generate report: '+err.message,'err'); }
+  }
+
+  fileInput.addEventListener('change', e => { const f=e.target.files?.[0]; if(f) loadFile(f); });
+  sheetSelect.addEventListener('change',()=>loadSheet(sheetSelect.value));
+  autoMapBtn.addEventListener('click',autoMap);
+  generateBtn.addEventListener('click',generate);
+  printBtn.addEventListener('click',()=>window.print());
+
+  ['centerName','fromDate','toDate','reportDate','filterDates','grossFormula','blankAffWalkin'].forEach(id=>{
+    el(id).addEventListener('change',()=>{ if(rawRows.length) generate(); });
+  });
+})();
+</script>
+</body>
+</html>
