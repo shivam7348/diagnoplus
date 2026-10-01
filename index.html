@@ -100,11 +100,13 @@
   @media(max-width:1100px){.grid{grid-template-columns:1fr}.preview-shell{min-height:500px}}
 
   @media print{
-    body{background:#fff}
+    html,body{width:210mm!important;margin:0!important;padding:0!important;background:#fff!important}
+    body{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
     .app>.hero,.grid>.panel:first-child,.preview-note{display:none!important}
-    .app,.grid,.panel,.preview-shell{display:block!important;max-width:none!important;width:auto!important;padding:0!important;margin:0!important;border:0!important;box-shadow:none!important;background:#fff!important}
+    .app,.grid,.panel,.preview-shell{display:block!important;max-width:none!important;width:210mm!important;padding:0!important;margin:0!important;border:0!important;box-shadow:none!important;background:#fff!important;overflow:visible!important}
     #pages{gap:0!important;display:block!important}
-    .report-page{box-shadow:none!important;margin:0!important;break-after:page;page-break-after:always}
+    .report-page{width:210mm!important;height:297mm!important;box-shadow:none!important;margin:0!important;overflow:hidden!important;break-inside:avoid!important;page-break-inside:avoid!important;break-after:page;page-break-after:always}
+    .report-table thead th{background:#ff9638!important}
     .report-page:last-child{break-after:auto;page-break-after:auto}
     @page{size:A4 portrait;margin:0}
   }
@@ -128,6 +130,11 @@
           <label>Excel file (.xlsx / .xls)</label>
           <input id="fileInput" type="file" accept=".xlsx,.xlsm,.csv" />
           <div class="hint">Supports .xlsx/.xlsm/.csv. The first row is read as column headings. Works offline.</div>
+        </div>
+        <div class="field">
+          <label>Merge More Data Files</label>
+          <input id="mergeFileInput" type="file" accept=".xlsx,.xlsm,.csv" multiple />
+          <div class="hint">Select one or more additional Excel/CSV files. New rows will be merged and exact duplicates will be skipped.</div>
         </div>
         <div class="field">
           <label>Sheet</label>
@@ -162,6 +169,7 @@
         </div>
 
         <div class="switchline"><input id="filterDates" type="checkbox" checked /> <span>Filter rows by From/To date</span></div>
+        <div class="switchline"><input id="mergeOldPdf" type="checkbox" checked /> <span>Merge supplied old PDF data <b>(16 records)</b></span></div>
         <div class="switchline"><input id="grossFormula" type="checkbox" checked /> <span>If Gross Amt column is unavailable, calculate <b>Amount - CPT</b></span></div>
         <div class="switchline"><input id="blankAffWalkin" type="checkbox" /> <span>Fill blank Affiliation as <b>Walk_In</b></span></div>
 
@@ -234,12 +242,33 @@
     gross:['gross amt','gross amount after cpt','gross margin','margin amount']
   };
 
+  // Imported from 7903dc07-772a-49dc-a90c-ed7edceefe99.pdf (01-05 Sep 2026).
+  const OLD_PDF_ROWS = [
+    ['0039','2026-09-01','Sunil Dunedar','Fasting Blood Sugar,Post Meal Blood Sugar','',100,0,100,100,0,30,70],
+    ['0040','2026-09-01','Kanchan Shendre','CBC,*Vitamin B12,TFT','Dr.  A.V. Joshi Sir  MBBS FCGP',1800,0,1800,1800,0,350,1450],
+    ['0043','2026-09-01','Anjana Chavhan','CBC','',300,0,300,300,0,70,230],
+    ['0044','2026-09-01','Preeti Katre','CBC,Widalslide,URINE EXAMINATION,TFT','Dr.  A.V. Joshi Sir  MBBS FCGP',1150,0,1150,1150,0,250,900],
+    ['0045','2026-09-01','Ambadas Titarmare','CBC,UREA, Creatinine,URINE EXAMINATION','Dr.  A.V. Joshi Sir  MBBS FCGP',600,0,600,600,0,150,450],
+    ['0080','2026-09-01','Shiwani Kawle','CBC,Widalslide','',550,0,600,0,600,130,420],
+    ['0001','2026-09-02','Omprakash Bhare','Fasting Blood Sugar,Post Meal Blood Sugar','Dr.  A.V. Joshi Sir  MBBS FCGP',100,0,100,0,100,50,50],
+    ['0002','2026-09-02','Vinod Karnake','Fasting Blood Sugar,Post Meal Blood Sugar,*HbA1c','Dr. C.D Jambhulakr Sir',600,0,600,100,500,300,300],
+    ['0024','2026-09-02','Evanshi Ikhar','CBC,CRP (C- REACTIVE PROTEIN)','Walk-In',800,0,800,800,0,170,630],
+    ['0029','2026-09-02','Manshree Dewase','CBC,BTCT','',450,0,450,450,0,170,280],
+    ['0001','2026-09-03','Anil Dabale','Fasting Blood Sugar,Post Meal Blood Sugar','Walk-In',100,0,100,0,100,50,50],
+    ['0019','2026-09-03','Sonali Wankhede','CBC,DENGUE PROFILE','Dr. C.D Jambhulakr Sir',1500,0,1500,500,1000,750,750],
+    ['0020','2026-09-03','Pushpa Karnade','SGOT (AST),SGPT (ALT),HB,URINE EXAMINATION','Dr.  A.V. Joshi Sir  MBBS FCGP',400,0,400,0,400,130,270],
+    ['0009','2026-09-04','Vanita Khatik','CBC,TFT,RBS,*Vitamin B12','',1850,0,1850,850,1000,365,1485],
+    ['0010','2026-09-04','Gaurav Kadu','CBC,RFT,Uric Acid,CAL,URINE EXAMINATION','',1450,0,1450,700,750,290,1160],
+    ['0001','2026-09-05','Mina Rathod','Fasting Blood Sugar,Post Meal Blood Sugar','Dr.  A.V. Joshi Sir  MBBS FCGP',100,0,100,0,100,50,50]
+  ].map((r,i)=>({sr:i+1,lcode:r[0],date:fmtDisplayDate(r[1]),rawDate:parseDate(r[1]),patient:r[2],test:r[3],affiliation:r[4],amount:r[5],disc:r[6],net:r[7],paid:r[8],bal:r[9],cpt:r[10],gross:r[11]}));
+
   let workbook = null;
   let rawRows = [];
   let headers = [];
 
   const el = id => document.getElementById(id);
   const fileInput = el('fileInput');
+  const mergeFileInput = el('mergeFileInput');
   const sheetSelect = el('sheetSelect');
   const mappingBody = el('mappingBody');
   const generateBtn = el('generateBtn');
@@ -383,10 +412,11 @@
   function populateDoctors(){
     const affiliationMap=el('map_affiliation')?.value;
     const previous=doctorSelect.value;
-    const doctors = affiliationMap && !affiliationMap.startsWith('__')
-      ? [...new Set(rawRows.map(r=>String(r[affiliationMap] ?? '').trim()).filter(Boolean))]
-          .sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}))
-      : [];
+    const currentDoctors = affiliationMap && !affiliationMap.startsWith('__')
+      ? rawRows.map(r=>String(r[affiliationMap] ?? '').trim()).filter(Boolean) : [];
+    const oldDoctors = el('mergeOldPdf').checked ? OLD_PDF_ROWS.map(r=>r.affiliation).filter(Boolean) : [];
+    const doctors = [...new Set([...currentDoctors,...oldDoctors])]
+      .sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
 
     doctorSelect.innerHTML='<option value="">All Doctors</option>';
     doctors.forEach(name=>{
@@ -572,12 +602,27 @@
     return {SheetNames:['CSV'],SheetsData:{CSV:rows}};
   }
 
+  async function readWorkbookFile(file){
+    const ext=(file.name.split('.').pop()||'').toLowerCase();
+    if(ext==='xls') throw new Error(`${file.name}: old .xls format is not supported. Save it as .xlsx first.`);
+    return ext==='csv' ? await parseCsv(file) : await parseXlsx(file);
+  }
+
+  function refreshDateRange(){
+    const dateHeader=findHeader('date');
+    const dates=dateHeader ? rawRows.map(r=>parseDate(r[dateHeader])).filter(Boolean) : [];
+    if(el('mergeOldPdf').checked) dates.push(...OLD_PDF_ROWS.map(r=>r.rawDate));
+    dates.sort((a,b)=>a-b);
+    if(dates.length){
+      el('fromDate').value=dateToISO(dates[0]);
+      el('toDate').value=dateToISO(dates[dates.length-1]);
+    }
+  }
+
   async function loadFile(file){
     hideStatus();
     try{
-      const ext=(file.name.split('.').pop()||'').toLowerCase();
-      if(ext==='xls') throw new Error('Old .xls format is not supported. Please Save As .xlsx first.');
-      workbook = ext==='csv' ? await parseCsv(file) : await parseXlsx(file);
+      workbook = await readWorkbookFile(file);
       sheetSelect.innerHTML='';
       workbook.SheetNames.forEach(n => {
         const o=document.createElement('option'); o.value=n; o.textContent=n; sheetSelect.appendChild(o);
@@ -602,14 +647,43 @@
     el('rowCount').textContent=`${rawRows.length.toLocaleString('en-IN')} rows`;
     makeMappingUI();
 
-    const dateHeader=findHeader('date');
-    if(dateHeader){
-      const dates=rawRows.map(r=>parseDate(r[dateHeader])).filter(Boolean).sort((a,b)=>a-b);
-      if(dates.length){
-        el('fromDate').value=dateToISO(dates[0]);
-        el('toDate').value=dateToISO(dates[dates.length-1]);
+    refreshDateRange();
+  }
+
+  async function mergeFiles(files){
+    if(!files.length) return;
+    hideStatus();
+    try{
+      let added=0, skipped=0;
+      for(const file of files){
+        const incomingBook=await readWorkbookFile(file);
+        const sheetName=incomingBook.SheetNames[0];
+        const arr=incomingBook.SheetsData[sheetName] || [];
+        if(arr.length<2) continue;
+        const incomingHeaders=arr[0].map((h,i)=>String(h || `Column ${i+1}`).trim());
+        const headerMap=new Map(headers.map(h=>[norm(h),h]));
+        incomingHeaders.forEach(h=>{ if(!headerMap.has(norm(h))){ headers.push(h); headerMap.set(norm(h),h); } });
+
+        const incomingRows=arr.slice(1).filter(r=>r.some(v=>String(v ?? '').trim()!==''))
+          .map(r=>Object.fromEntries(incomingHeaders.map((h,i)=>[headerMap.get(norm(h)),r[i] ?? ''])));
+        const keyFor=row=>headers.map(h=>norm(row[h] ?? '')).join('\u001f');
+        const existing=new Set(rawRows.map(keyFor));
+        incomingRows.forEach(row=>{
+          const key=keyFor(row);
+          if(existing.has(key)){ skipped++; return; }
+          rawRows.push(row); existing.add(key); added++;
+        });
       }
-    }
+      el('rowCount').textContent=`${rawRows.length.toLocaleString('en-IN')} rows`;
+      makeMappingUI();
+      refreshDateRange();
+      autoMapBtn.disabled=!headers.length;
+      generateBtn.disabled=!rawRows.length && !el('mergeOldPdf').checked;
+      excelBtn.disabled=generateBtn.disabled;
+      if(rawRows.length || el('mergeOldPdf').checked) generate();
+      showStatus(`Merged ${added.toLocaleString('en-IN')} new row(s); ${skipped.toLocaleString('en-IN')} duplicate row(s) skipped.`, 'ok');
+    }catch(err){ console.error(err); showStatus('Could not merge data: '+err.message,'err'); }
+    finally{ mergeFileInput.value=''; }
   }
 
   function getMap(){
@@ -642,7 +716,7 @@
       rows=rows.filter(r=>norm(getVal(r,map.affiliation,''))===norm(selectedDoctor));
     }
 
-    return rows.map((r,i)=>{
+    let result=rows.map((r,i)=>{
       const amount=toNum(getVal(r,map.amount,0));
       const cpt=toNum(getVal(r,map.cpt,0));
       const grossMapped = getVal(r,map.gross,'');
@@ -674,6 +748,18 @@
         gross
       };
     });
+
+    if(el('mergeOldPdf').checked){
+      let oldRows=OLD_PDF_ROWS.filter(r=>!el('filterDates').checked || ((!from || r.rawDate>=from) && (!to || r.rawDate<=to)));
+      if(selectedDoctor) oldRows=oldRows.filter(r=>norm(r.affiliation)===norm(selectedDoctor));
+      const rowKey=r=>[dateToISO(r.rawDate),norm(r.patient),norm(r.test),toNum(r.amount),norm(r.affiliation)].join('|');
+      const existing=new Set(result.map(rowKey));
+      oldRows.forEach(r=>{ if(!existing.has(rowKey(r))) result.push({...r}); });
+    }
+
+    result.sort((a,b)=>(a.rawDate?.getTime() || 0)-(b.rawDate?.getTime() || 0));
+    result.forEach((r,i)=>{ r.sr=i+1; });
+    return result;
   }
 
   function headerHTML(){
@@ -840,6 +926,7 @@
   }
 
   fileInput.addEventListener('change', e => { const f=e.target.files?.[0]; if(f) loadFile(f); });
+  mergeFileInput.addEventListener('change',e=>mergeFiles([...e.target.files]));
   sheetSelect.addEventListener('change',()=>loadSheet(sheetSelect.value));
   autoMapBtn.addEventListener('click',autoMap);
   generateBtn.addEventListener('click',generate);
@@ -857,6 +944,19 @@
   ['centerName','fromDate','toDate','reportDate','filterDates','grossFormula','blankAffWalkin'].forEach(id=>{
     el(id).addEventListener('change',()=>{ if(rawRows.length) generate(); });
   });
+  el('mergeOldPdf').addEventListener('change',()=>{
+    populateDoctors();
+    generateBtn.disabled=!rawRows.length && !el('mergeOldPdf').checked;
+    excelBtn.disabled=generateBtn.disabled;
+    if(rawRows.length || el('mergeOldPdf').checked) generate();
+  });
+
+  // Make the imported PDF records available even before a new Excel file is uploaded.
+  el('fromDate').value='2026-09-01';
+  el('toDate').value='2026-09-05';
+  generateBtn.disabled=false;
+  excelBtn.disabled=false;
+  populateDoctors();
 })();
 </script>
 </body>
