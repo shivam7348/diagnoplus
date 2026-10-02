@@ -434,9 +434,11 @@
 
   function populateDoctors(){
     const affiliationMap=el('map_affiliation')?.value;
+    const doctorNameHeader=headers.find(h=>norm(h)==='doctor name');
     const previous=doctorSelect.value;
     const currentDoctors = affiliationMap && !affiliationMap.startsWith('__')
-      ? rawRows.map(r=>String(r[affiliationMap] ?? '').trim()).filter(Boolean) : [];
+      ? rawRows.map(r=>cleanText(r[affiliationMap]) || cleanText(r[doctorNameHeader])).filter(Boolean)
+      : doctorNameHeader ? rawRows.map(r=>cleanText(r[doctorNameHeader])).filter(Boolean) : [];
     const oldDoctors = el('mergeOldPdf').checked ? OLD_PDF_ROWS.map(r=>r.affiliation).filter(Boolean) : [];
     const doctors = [...new Set([...currentDoctors,...oldDoctors])]
       .sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
@@ -732,6 +734,12 @@
     return row[mapping] ?? fallback;
   }
 
+  function getDoctorValue(row,map){
+    const affiliation=cleanText(getVal(row,map.affiliation,''));
+    const doctorNameHeader=headers.find(h=>norm(h)==='doctor name');
+    return affiliation || cleanText(row[doctorNameHeader]);
+  }
+
   function transformRows(){
     const map=getMap();
     let rows=rawRows.slice();
@@ -749,8 +757,8 @@
     rows = rows.filter(r => norm(getVal(r,map.sr,'')) !== 'total' && norm(getVal(r,map.patient,'')) !== 'total');
 
     const selectedDoctor=doctorSelect.value;
-    if(selectedDoctor && map.affiliation && !map.affiliation.startsWith('__')){
-      rows=rows.filter(r=>norm(getVal(r,map.affiliation,''))===norm(selectedDoctor));
+    if(selectedDoctor){
+      rows=rows.filter(r=>norm(getDoctorValue(r,map))===norm(selectedDoctor));
     }
 
     let result=rows.map((r,i)=>{
@@ -764,7 +772,7 @@
         gross=toNum(grossMapped);
         if(map.cpt==='__blank__') cpt=amount-gross;
       }
-      let aff=cleanText(getVal(r,map.affiliation,''));
+      let aff=getDoctorValue(r,map);
       if(!aff && el('blankAffWalkin').checked) aff='Walk_In';
       const sr = map.sr==='__seq__' ? i+1 : (getVal(r,map.sr,i+1) || i+1);
       let lcode='';
