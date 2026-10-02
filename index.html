@@ -137,6 +137,15 @@
           <div id="mergeFileHint" class="hint">Select multiple files together (Ctrl/Shift selection). New rows will be merged and exact duplicates will be skipped.</div>
         </div>
         <div class="field">
+          <label>Merge Exactly Two Files</label>
+          <div class="row2">
+            <input id="mergeFileOne" type="file" accept=".xlsx,.xlsm,.xls,.csv" aria-label="Excel File 1" />
+            <input id="mergeFileTwo" type="file" accept=".xlsx,.xlsm,.xls,.csv" aria-label="Excel File 2" />
+          </div>
+          <button id="mergeTwoBtn" class="btn-primary" type="button" disabled style="width:100%;margin-top:8px">Merge Both Files</button>
+          <div class="hint">Choose File 1 and File 2, then click Merge Both Files.</div>
+        </div>
+        <div class="field">
           <label>Sheet</label>
           <select id="sheetSelect" disabled><option>Select file first</option></select>
         </div>
@@ -270,6 +279,9 @@
   const fileInput = el('fileInput');
   const mergeFileInput = el('mergeFileInput');
   const mergeFileHint = el('mergeFileHint');
+  const mergeFileOne = el('mergeFileOne');
+  const mergeFileTwo = el('mergeFileTwo');
+  const mergeTwoBtn = el('mergeTwoBtn');
   const sheetSelect = el('sheetSelect');
   const mappingBody = el('mappingBody');
   const generateBtn = el('generateBtn');
@@ -952,6 +964,20 @@
 
   fileInput.addEventListener('change', e => { const f=e.target.files?.[0]; if(f) loadFile(f); });
   mergeFileInput.addEventListener('change',e=>mergeFiles([...e.target.files]));
+  const updateMergeTwoButton=()=>{
+    mergeTwoBtn.disabled=!(mergeFileOne.files?.[0] && mergeFileTwo.files?.[0]);
+  };
+  mergeFileOne.addEventListener('change',updateMergeTwoButton);
+  mergeFileTwo.addEventListener('change',updateMergeTwoButton);
+  mergeTwoBtn.addEventListener('click',async()=>{
+    const files=[mergeFileOne.files?.[0],mergeFileTwo.files?.[0]].filter(Boolean);
+    if(files.length!==2) return;
+    mergeTwoBtn.disabled=true;
+    await mergeFiles(files);
+    mergeFileOne.value='';
+    mergeFileTwo.value='';
+    updateMergeTwoButton();
+  });
   sheetSelect.addEventListener('change',()=>loadSheet(sheetSelect.value));
   autoMapBtn.addEventListener('click',autoMap);
   generateBtn.addEventListener('click',generate);
