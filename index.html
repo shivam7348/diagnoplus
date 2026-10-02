@@ -245,7 +245,7 @@
     date:['date','bill date','billing date','visit date','created date','regn date time','registration date time'],
     patient:['patient name','patient info','patient','name','customer name'],
     test:['test','tests','tests/packages','test/package','test packages','test name','selected test','search test name','package','package name'],
-    affiliation:['affiliation','referral doctor','ref doctor','doctor','ref. doctor','reference doctor','referred by','source'],
+    affiliation:['affiliation company name','affiliation','referral doctor','ref doctor','doctor','ref. doctor','reference doctor','referred by','source'],
     amount:['amount','gross amount','bill amount','total amount'],
     disc:['disc','discount','discount amount'],
     net:['net','net amount','net amt','final amount'],
@@ -434,11 +434,9 @@
 
   function populateDoctors(){
     const affiliationMap=el('map_affiliation')?.value;
-    const doctorNameHeader=headers.find(h=>norm(h)==='doctor name');
     const previous=doctorSelect.value;
     const currentDoctors = affiliationMap && !affiliationMap.startsWith('__')
-      ? rawRows.map(r=>cleanText(r[affiliationMap]) || cleanText(r[doctorNameHeader])).filter(Boolean)
-      : doctorNameHeader ? rawRows.map(r=>cleanText(r[doctorNameHeader])).filter(Boolean) : [];
+      ? rawRows.map(r=>cleanText(r[affiliationMap])).filter(Boolean) : [];
     const oldDoctors = el('mergeOldPdf').checked ? OLD_PDF_ROWS.map(r=>r.affiliation).filter(Boolean) : [];
     const doctors = [...new Set([...currentDoctors,...oldDoctors])]
       .sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
@@ -735,9 +733,7 @@
   }
 
   function getDoctorValue(row,map){
-    const affiliation=cleanText(getVal(row,map.affiliation,''));
-    const doctorNameHeader=headers.find(h=>norm(h)==='doctor name');
-    return affiliation || cleanText(row[doctorNameHeader]);
+    return cleanText(getVal(row,map.affiliation,''));
   }
 
   function transformRows(){
