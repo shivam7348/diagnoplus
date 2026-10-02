@@ -132,9 +132,9 @@
           <div class="hint">Supports .xlsx/.xlsm/.xls/.csv. Registration-export .xls files are also supported.</div>
         </div>
         <div class="field">
-          <label>Merge More Data Files</label>
+          <label>Merge Multiple Excel Files at Once</label>
           <input id="mergeFileInput" type="file" accept=".xlsx,.xlsm,.xls,.csv" multiple />
-          <div class="hint">Select one or more additional Excel/CSV files. New rows will be merged and exact duplicates will be skipped.</div>
+          <div id="mergeFileHint" class="hint">Select multiple files together (Ctrl/Shift selection). New rows will be merged and exact duplicates will be skipped.</div>
         </div>
         <div class="field">
           <label>Sheet</label>
@@ -269,6 +269,7 @@
   const el = id => document.getElementById(id);
   const fileInput = el('fileInput');
   const mergeFileInput = el('mergeFileInput');
+  const mergeFileHint = el('mergeFileHint');
   const sheetSelect = el('sheetSelect');
   const mappingBody = el('mappingBody');
   const generateBtn = el('generateBtn');
@@ -669,6 +670,7 @@
   async function mergeFiles(files){
     if(!files.length) return;
     hideStatus();
+    mergeFileHint.textContent=`Merging ${files.length} selected file(s)...`;
     try{
       let added=0, skipped=0;
       for(const file of files){
@@ -699,7 +701,10 @@
       if(rawRows.length || el('mergeOldPdf').checked) generate();
       showStatus(`Merged ${added.toLocaleString('en-IN')} new row(s); ${skipped.toLocaleString('en-IN')} duplicate row(s) skipped.`, 'ok');
     }catch(err){ console.error(err); showStatus('Could not merge data: '+err.message,'err'); }
-    finally{ mergeFileInput.value=''; }
+    finally{
+      mergeFileInput.value='';
+      mergeFileHint.textContent='Select multiple files together (Ctrl/Shift selection). New rows will be merged and exact duplicates will be skipped.';
+    }
   }
 
   function getMap(){
