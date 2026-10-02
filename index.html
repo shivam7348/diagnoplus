@@ -89,7 +89,11 @@
   .report-table tbody td{padding:1.05mm .8mm .35mm;vertical-align:top;border:none;overflow-wrap:anywhere;word-break:normal}
   .report-table td.num,.report-table th.num{text-align:right;white-space:nowrap}
   .report-table td.center{text-align:center}
-  .report-table .totals td{font-weight:700;border-top:1px solid #000;padding-top:1.4mm}
+  .report-table .totals td{font-weight:700;border-top:1px solid #000;padding:1.5mm .8mm .4mm}
+  .totals-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1mm;width:100%}
+  .total-item{min-width:0;text-align:right;white-space:nowrap}
+  .total-label{display:block;font-size:5.8pt;color:#444;margin-bottom:.35mm;text-transform:uppercase;letter-spacing:.1pt}
+  .total-value{display:block;font-size:7pt;line-height:1.1;font-variant-numeric:tabular-nums}
   .page-footer{position:absolute;left:3mm;right:3mm;bottom:3.2mm;height:5mm;border-top:1px solid #000;text-align:center;padding-top:1.6mm;font-size:8.3pt}
   .empty-preview{width:min(800px,95%);margin:45px auto;background:#fff;border:1px dashed #b8c0cc;border-radius:14px;padding:36px;text-align:center;color:#667085}
   .empty-preview strong{display:block;color:#344054;font-size:18px;margin-bottom:7px}
@@ -844,14 +848,13 @@
 
   function totalsRow(rows){
     const s=k=>rows.reduce((a,r)=>a+toNum(r[k]),0);
-    return `<tr class="totals"><td colspan="6"></td>
-      <td class="num">${fmtMoney2(s('amount'))}</td>
-      <td class="num">${fmtMoney2(s('disc'))}</td>
-      <td class="num">${fmtMoney2(s('net'))}</td>
-      <td class="num">${fmtMoney2(s('paid'))}</td>
-      <td class="num">${fmtMoney2(s('bal'))}</td>
-      <td class="num">${fmtMoney2(s('cpt'))}</td>
-      <td class="num">${fmtMoney2(s('gross'))}</td></tr>`;
+    const totals=[
+      ['Amount','amount'],['Discount','disc'],['Net','net'],['Paid','paid'],
+      ['Balance','bal'],['CPT','cpt'],['Gross Amt','gross']
+    ];
+    return `<tr class="totals"><td colspan="13"><div class="totals-grid">${totals.map(([label,key])=>
+      `<div class="total-item"><span class="total-label">${label}</span><span class="total-value">${fmtMoney2(s(key))}</span></div>`
+    ).join('')}</div></td></tr>`;
   }
 
   function makePage(bodyHtml, pageNo, totalPages){
