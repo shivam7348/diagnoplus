@@ -128,12 +128,12 @@
       <div class="panel-body">
         <div class="field">
           <label>Excel file (.xlsx / .xls)</label>
-          <input id="fileInput" type="file" accept=".xlsx,.xlsm,.csv" />
-          <div class="hint">Supports .xlsx/.xlsm/.csv. The first row is read as column headings. Works offline.</div>
+          <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls,.csv" />
+          <div class="hint">Supports .xlsx/.xlsm/.xls/.csv. Registration-export .xls files are also supported.</div>
         </div>
         <div class="field">
           <label>Merge More Data Files</label>
-          <input id="mergeFileInput" type="file" accept=".xlsx,.xlsm,.csv" multiple />
+          <input id="mergeFileInput" type="file" accept=".xlsx,.xlsm,.xls,.csv" multiple />
           <div class="hint">Select one or more additional Excel/CSV files. New rows will be merged and exact duplicates will be skipped.</div>
         </div>
         <div class="field">
@@ -229,17 +229,17 @@
   const aliases = {
     sr:['sr no','sr. no.','sr no.','sno','serial no','serial number','#'],
     lcode:['lcode','l code','lab code','labcode','code'],
-    date:['date','bill date','billing date','visit date','created date'],
+    date:['date','bill date','billing date','visit date','created date','regn date time','registration date time'],
     patient:['patient name','patient info','patient','name','customer name'],
-    test:['test','tests','tests/packages','test/package','test packages','test name','package','package name'],
+    test:['test','tests','tests/packages','test/package','test packages','test name','selected test','search test name','package','package name'],
     affiliation:['affiliation','referral doctor','ref doctor','doctor','ref. doctor','reference doctor','referred by','source'],
     amount:['amount','gross amount','bill amount','total amount'],
     disc:['disc','discount','discount amount'],
     net:['net','net amount','net amt','final amount'],
-    paid:['paid','paid amount','received','received amount'],
-    bal:['bal','balance','due','due amount','balance amount'],
+    paid:['paid','paid amount','amount paid','received','received amount'],
+    bal:['bal','balance','balance amt','due','due amount','balance amount'],
     cpt:['cpt','cost','cost price','ref. doctor(commission)','ref doctor commission','commission','doctor commission'],
-    gross:['gross amt','gross amount after cpt','gross margin','margin amount']
+    gross:['gross amt','gross amount after cpt','gross margin','margin amount','recovery amount']
   };
 
   // Imported from 7903dc07-772a-49dc-a90c-ed7edceefe99.pdf (01-05 Sep 2026).
@@ -280,7 +280,7 @@
   const statusBox = el('status');
 
   function norm(s){
-    return String(s ?? '').trim().toLowerCase().replace(/[._-]+/g,' ').replace(/\s+/g,' ');
+    return String(s ?? '').trim().replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase().replace(/[._-]+/g,' ').replace(/\s+/g,' ');
   }
 
   function esc(s){
@@ -407,6 +407,12 @@
     });
     populateDoctors();
     showStatus('Columns auto-mapped. Please review CPT and Gross Amt mapping once.', 'ok');
+  }
+
+  function cleanText(value){
+    const box=document.createElement('textarea');
+    box.innerHTML=String(value ?? '');
+    return box.value.trim();
   }
 
   function populateDoctors(){
@@ -602,9 +608,19 @@
     return {SheetNames:['CSV'],SheetsData:{CSV:rows}};
   }
 
+  async function parseTabXls(file){
+    const bytes=new Uint8Array(await file.slice(0,8).arrayBuffer());
+    if(bytes[0]===0xD0 && bytes[1]===0xCF) throw new Error(`${file.name}: binary old .xls is not supported. Save it as .xlsx first.`);
+    const text=await file.text();
+    const rows=text.replace(/^\uFEFF/,'').split(/\r?\n/)
+      .filter((x,i,a)=>x!=='' || i<a.length-1)
+      .map(line=>line.split('\t'));
+    return {SheetNames:['XLS Export'],SheetsData:{'XLS Export':rows}};
+  }
+
   async function readWorkbookFile(file){
     const ext=(file.name.split('.').pop()||'').toLowerCase();
-    if(ext==='xls') throw new Error(`${file.name}: old .xls format is not supported. Save it as .xlsx first.`);
+    if(ext==='xls') return parseTabXls(file);
     return ext==='csv' ? await parseCsv(file) : await parseXlsx(file);
   }
 
@@ -718,13 +734,16 @@
 
     let result=rows.map((r,i)=>{
       const amount=toNum(getVal(r,map.amount,0));
-      const cpt=toNum(getVal(r,map.cpt,0));
+      let cpt=toNum(getVal(r,map.cpt,0));
       const grossMapped = getVal(r,map.gross,'');
       let gross=0;
       if(map.gross==='__formula__' || map.gross==='__blank__'){
         gross = el('grossFormula').checked ? amount-cpt : 0;
-      }else gross=toNum(grossMapped);
-      let aff=String(getVal(r,map.affiliation,'') ?? '').trim();
+      }else{
+        gross=toNum(grossMapped);
+        if(map.cpt==='__blank__') cpt=amount-gross;
+      }
+      let aff=cleanText(getVal(r,map.affiliation,''));
       if(!aff && el('blankAffWalkin').checked) aff='Walk_In';
       const sr = map.sr==='__seq__' ? i+1 : (getVal(r,map.sr,i+1) || i+1);
       let lcode='';
@@ -736,8 +755,8 @@
         lcode,
         date:fmtDisplayDate(getVal(r,map.date,'')),
         rawDate:parseDate(getVal(r,map.date,'')),
-        patient:String(getVal(r,map.patient,'') ?? '').trim(),
-        test:String(getVal(r,map.test,'') ?? '').trim(),
+        patient:cleanText(getVal(r,map.patient,'')),
+        test:cleanText(getVal(r,map.test,'')),
         affiliation:aff,
         amount,
         disc:toNum(getVal(r,map.disc,0)),
@@ -752,7 +771,8 @@
     if(el('mergeOldPdf').checked){
       let oldRows=OLD_PDF_ROWS.filter(r=>!el('filterDates').checked || ((!from || r.rawDate>=from) && (!to || r.rawDate<=to)));
       if(selectedDoctor) oldRows=oldRows.filter(r=>norm(r.affiliation)===norm(selectedDoctor));
-      const rowKey=r=>[dateToISO(r.rawDate),norm(r.patient),norm(r.test),toNum(r.amount),norm(r.affiliation)].join('|');
+      // Date + patient + amount remains stable when test order or doctor spelling differs between exports.
+      const rowKey=r=>[dateToISO(r.rawDate),norm(r.patient),toNum(r.amount)].join('|');
       const existing=new Set(result.map(rowKey));
       oldRows.forEach(r=>{ if(!existing.has(rowKey(r))) result.push({...r}); });
     }
