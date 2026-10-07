@@ -183,6 +183,12 @@
           <div class="hint">Select a doctor to show only that doctor's data.</div>
         </div>
 
+        <div class="field">
+          <label>Collection Center</label>
+          <select id="collectionCenterSelect" disabled><option value="">All Collection Centers</option></select>
+          <div class="hint">Select a collection center to filter the report and Excel export.</div>
+        </div>
+
         <div class="switchline"><input id="filterDates" type="checkbox" checked /> <span>Filter rows by From/To date</span></div>
         <div class="switchline"><input id="mergeOldPdf" type="checkbox" checked /> <span>Merge supplied old PDF data <b>(16 records)</b></span></div>
         <div class="switchline"><input id="grossFormula" type="checkbox" checked /> <span>If Gross Amt column is unavailable, calculate <b>Amount - CPT</b></span></div>
@@ -307,6 +313,7 @@
   const autoMapBtn = el('autoMapBtn');
   const doctorSelect = el('doctorSelect');
   const doctorReportBtn = el('doctorReportBtn');
+  const collectionCenterSelect = el('collectionCenterSelect');
   const toggleCommissionBtn = el('toggleCommissionBtn');
   const statusBox = el('status');
   let showCommissionColumns = true;
@@ -467,6 +474,22 @@
     doctorSelect.disabled=!doctors.length;
     if(doctors.includes(previous)) doctorSelect.value=previous;
     doctorReportBtn.classList.toggle('is-hidden', !doctorSelect.value);
+  }
+
+  function populateCollectionCenters(){
+    const centerMap=el('map_collectionCenter')?.value;
+    const previous=collectionCenterSelect.value;
+    let centers=[];
+    if(centerMap && !centerMap.startsWith('__')){
+      centers=rawRows.map(r=>cleanText(r[centerMap])).filter(Boolean);
+    }else{
+      const fallback=el('centerName').value.trim();
+      if(fallback) centers=[fallback];
+    }
+    centers=[...new Set(centers)].sort((a,b)=>a.localeCompare(b,undefined,{sensitivity:'base'}));
+    collectionCenterSelect.innerHTML='<option value="">All Collection Centers</option>'+centers.map(center=>`<option value="${escAttr(center)}">${esc(center)}</option>`).join('');
+    collectionCenterSelect.disabled=!centers.length;
+    if(centers.some(center=>center===previous)) collectionCenterSelect.value=previous;
   }
 
   // ---------- Built-in offline XLSX reader ----------
