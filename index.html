@@ -78,6 +78,7 @@
   .report-table col.patient{width:12.2%}
   .report-table col.test{width:15.7%}
   .report-table col.aff{width:7.2%}
+  .report-table col.collection{width:7.2%}
   .report-table col.amount{width:4.8%}
   .report-table col.disc{width:4.2%}
   .report-table col.net{width:4.7%}
@@ -186,6 +187,7 @@
         <div class="switchline"><input id="mergeOldPdf" type="checkbox" checked /> <span>Merge supplied old PDF data <b>(16 records)</b></span></div>
         <div class="switchline"><input id="grossFormula" type="checkbox" checked /> <span>If Gross Amt column is unavailable, calculate <b>Amount - CPT</b></span></div>
         <div class="switchline"><input id="blankAffWalkin" type="checkbox" /> <span>Fill blank Affiliation as <b>Walk_In</b></span></div>
+        <button id="toggleCommissionBtn" class="btn-danger" type="button" style="width:100%;margin-top:6px">Remove CPT &amp; Gross Amt</button>
 
         <div class="actions">
           <button id="autoMapBtn" class="btn-secondary" disabled>Auto Map</button>
@@ -231,6 +233,7 @@
     {key:'patient', label:'Patient Name'},
     {key:'test', label:'Test'},
     {key:'affiliation', label:'Affiliation'},
+    {key:'collectionCenter', label:'Collection Center'},
     {key:'amount', label:'Amount', numeric:true},
     {key:'disc', label:'Disc', numeric:true},
     {key:'net', label:'Net', numeric:true},
@@ -251,6 +254,7 @@
     patient:['patient name','patient info','patient','name','customer name'],
     test:['test','tests','tests/packages','test/package','test packages','test name','selected test','search test name','package','package name'],
     affiliation:['affiliation company name','affiliation','referral doctor','ref doctor','doctor','ref. doctor','reference doctor','referred by','source'],
+    collectionCenter:['collection center','collection centre','center name','centre name','branch','branch name','location'],
     amount:['amount','gross amount','bill amount','total amount'],
     disc:['disc','discount','discount amount'],
     net:['net','net amount','net amt','final amount'],
@@ -282,7 +286,7 @@
     ['0009','2026-09-04','Vanita Khatik','CBC,TFT,RBS,*Vitamin B12','',1850,0,1850,850,1000,365,1485],
     ['0010','2026-09-04','Gaurav Kadu','CBC,RFT,Uric Acid,CAL,URINE EXAMINATION','',1450,0,1450,700,750,290,1160],
     ['0001','2026-09-05','Mina Rathod','Fasting Blood Sugar,Post Meal Blood Sugar','Dr.  A.V. Joshi Sir  MBBS FCGP',100,0,100,0,100,50,50]
-  ].map((r,i)=>({sr:i+1,lcode:r[0],date:fmtDisplayDate(r[1]),rawDate:parseDate(r[1]),patient:r[2],test:r[3],affiliation:r[4],amount:r[5],disc:r[6],net:r[7],paid:r[8],bal:r[9],cash:0,upi:0,card:0,total:0,cpt:r[10],gross:r[11]}));
+  ].map((r,i)=>({sr:i+1,lcode:r[0],date:fmtDisplayDate(r[1]),rawDate:parseDate(r[1]),patient:r[2],test:r[3],affiliation:r[4],collectionCenter:'',amount:r[5],disc:r[6],net:r[7],paid:r[8],bal:r[9],cash:0,upi:0,card:0,total:0,cpt:r[10],gross:r[11]}));
 
   let workbook = null;
   let rawRows = [];
@@ -303,7 +307,9 @@
   const autoMapBtn = el('autoMapBtn');
   const doctorSelect = el('doctorSelect');
   const doctorReportBtn = el('doctorReportBtn');
+  const toggleCommissionBtn = el('toggleCommissionBtn');
   const statusBox = el('status');
+  let showCommissionColumns = true;
 
   function norm(s){
     return String(s ?? '').trim().replace(/([a-z0-9])([A-Z])/g,'$1 $2').toLowerCase().replace(/[._-]+/g,' ').replace(/\s+/g,' ');
@@ -797,6 +803,7 @@
         patient:cleanText(getVal(r,map.patient,'')),
         test:cleanText(getVal(r,map.test,'')),
         affiliation:aff,
+        collectionCenter:cleanText(getVal(r,map.collectionCenter,'')) || el('centerName').value.trim(),
         amount,
         disc:toNum(getVal(r,map.disc,0)),
         net:toNum(getVal(r,map.net,0)),
@@ -820,6 +827,8 @@
       oldRows.forEach(r=>{ if(!existing.has(rowKey(r))) result.push({...r}); });
     }
 
+    result.forEach(r=>{ if(!r.collectionCenter) r.collectionCenter=el('centerName').value.trim(); });
+
     result.sort((a,b)=>(a.rawDate?.getTime() || 0)-(b.rawDate?.getTime() || 0));
     result.forEach((r,i)=>{ r.sr=i+1; });
     return result;
@@ -840,13 +849,15 @@
   }
 
   function tableShellHTML(body=''){
+    const commissionCols=showCommissionColumns ? '<col class="cpt"><col class="gross">' : '';
+    const commissionHeads=showCommissionColumns ? '<th class="num">CPT</th><th class="num">Gross Amt</th>' : '';
     return `<table class="report-table">
       <colgroup>
-        <col class="sr"><col class="lcode"><col class="date"><col class="patient"><col class="test"><col class="aff"><col class="amount"><col class="disc"><col class="net"><col class="paid"><col class="bal"><col class="payment"><col class="payment"><col class="payment"><col class="payment"><col class="cpt"><col class="gross">
+        <col class="sr"><col class="lcode"><col class="date"><col class="patient"><col class="test"><col class="aff"><col class="collection"><col class="amount"><col class="disc"><col class="net"><col class="paid"><col class="bal"><col class="payment"><col class="payment"><col class="payment"><col class="payment">${commissionCols}
       </colgroup>
       <thead><tr>
-        <th>Sr. No.</th><th>LCode</th><th>Date</th><th>Patient Name</th><th>Test</th><th>Affiliation</th>
-        <th class="num">Amount</th><th class="num">Disc</th><th class="num">Net</th><th class="num">Paid</th><th class="num">Bal.</th><th class="num">Cash</th><th class="num">UPI</th><th class="num">Card</th><th class="num">Total</th><th class="num">CPT</th><th class="num">Gross Amt</th>
+        <th>Sr. No.</th><th>LCode</th><th>Date</th><th>Patient Name</th><th>Test</th><th>Affiliation</th><th>Collection Center</th>
+        <th class="num">Amount</th><th class="num">Disc</th><th class="num">Net</th><th class="num">Paid</th><th class="num">Bal.</th><th class="num">Cash</th><th class="num">UPI</th><th class="num">Card</th><th class="num">Total</th>${commissionHeads}
       </tr></thead><tbody>${body}</tbody></table>`;
   }
 
@@ -858,6 +869,7 @@
       <td>${esc(r.patient)}</td>
       <td>${esc(r.test)}</td>
       <td>${esc(r.affiliation)}</td>
+      <td>${esc(r.collectionCenter)}</td>
       <td class="num">${fmtNum(r.amount)}</td>
       <td class="num">${fmtNum(r.disc)}</td>
       <td class="num">${fmtNum(r.net)}</td>
@@ -867,18 +879,18 @@
       <td class="num">${fmtNum(r.upi)}</td>
       <td class="num">${fmtNum(r.card)}</td>
       <td class="num">${fmtNum(r.total)}</td>
-      <td class="num">${fmtMoney2(r.cpt)}</td>
-      <td class="num">${fmtMoney2(r.gross)}</td>
+      ${showCommissionColumns ? `<td class="num">${fmtMoney2(r.cpt)}</td><td class="num">${fmtMoney2(r.gross)}</td>` : ''}
     </tr>`;
   }
 
   function totalsRow(rows){
     const s=k=>rows.reduce((a,r)=>a+toNum(r[k]),0);
-    const totals=[
+    let totals=[
       ['Amount','amount'],['Discount','disc'],['Net','net'],['Paid','paid'],
       ['Balance','bal'],['Cash','cash'],['UPI','upi'],['Card','card'],['Total','total'],['CPT','cpt'],['Gross Amt','gross']
     ];
-    return `<tr class="totals"><td colspan="17"><div class="totals-grid">${totals.map(([label,key])=>
+    if(!showCommissionColumns) totals=totals.filter(([,key])=>key!=='cpt' && key!=='gross');
+    return `<tr class="totals"><td colspan="${showCommissionColumns?18:16}"><div class="totals-grid" style="grid-template-columns:repeat(${totals.length},minmax(0,1fr))">${totals.map(([label,key])=>
       `<div class="total-item"><span class="total-label">${label}</span><span class="total-value">${fmtMoney2(s(key))}</span></div>`
     ).join('')}</div></td></tr>`;
   }
@@ -965,20 +977,24 @@
       const to=fmtDMY(el('toDate').value).replaceAll('/','-');
       const reportDate=fmtDMY(el('reportDate').value);
       const doctor=doctorSelect.value || 'All Doctors';
-      const headings=['Sr. No.','LCode','Date','Patient Name','Test','Affiliation','Amount','Disc','Net','Paid','Bal.','Cash','UPI','Card','Total','CPT','Gross Amt'];
+      const headings=['Sr. No.','LCode','Date','Patient Name','Test','Affiliation','Collection Center','Amount','Disc','Net','Paid','Bal.','Cash','UPI','Card','Total'];
+      if(showCommissionColumns) headings.push('CPT','Gross Amt');
       const body=rows.map(r=>`<tr>
-        ${excelCell(r.sr)}${excelCell(r.lcode)}${excelCell(r.date)}${excelCell(r.patient)}${excelCell(r.test)}${excelCell(r.affiliation)}
-        ${excelCell(r.amount,true)}${excelCell(r.disc,true)}${excelCell(r.net,true)}${excelCell(r.paid,true)}${excelCell(r.bal,true)}${excelCell(r.cash,true)}${excelCell(r.upi,true)}${excelCell(r.card,true)}${excelCell(r.total,true)}${excelCell(r.cpt,true)}${excelCell(r.gross,true)}
+        ${excelCell(r.sr)}${excelCell(r.lcode)}${excelCell(r.date)}${excelCell(r.patient)}${excelCell(r.test)}${excelCell(r.affiliation)}${excelCell(r.collectionCenter)}
+        ${excelCell(r.amount,true)}${excelCell(r.disc,true)}${excelCell(r.net,true)}${excelCell(r.paid,true)}${excelCell(r.bal,true)}${excelCell(r.cash,true)}${excelCell(r.upi,true)}${excelCell(r.card,true)}${excelCell(r.total,true)}${showCommissionColumns ? excelCell(r.cpt,true)+excelCell(r.gross,true) : ''}
       </tr>`).join('');
-      const totals=['amount','disc','net','paid','bal','cash','upi','card','total','cpt','gross'].map(key=>excelCell(sum(key),true)).join('');
+      const totalKeys=['amount','disc','net','paid','bal','cash','upi','card','total'];
+      if(showCommissionColumns) totalKeys.push('cpt','gross');
+      const totals=totalKeys.map(key=>excelCell(sum(key),true)).join('');
+      const columnCount=headings.length;
       const html=`<!doctype html><html><head><meta charset="UTF-8"><style>
         table{border-collapse:collapse;font-family:Arial,sans-serif;font-size:10pt}td,th{border:1px solid #999;padding:6px;vertical-align:top}
         .title{font-size:16pt;font-weight:bold;text-align:center}.meta{font-weight:bold}.head th{background:#ff9638;color:#111;font-weight:bold}.total td{font-weight:bold;border-top:2px solid #000}
       </style></head><body><table>
-        <tr><td colspan="2" class="meta">Report Date: ${esc(reportDate)}</td><td colspan="15" class="title">Complement Details</td></tr>
-        <tr><td colspan="6" class="meta">Collection Center Name: ${esc(center)}</td><td colspan="6" class="meta">${esc(from)} To ${esc(to)}</td><td colspan="5" class="meta">Doctor: ${esc(doctor)}</td></tr>
+        <tr><td colspan="2" class="meta">Report Date: ${esc(reportDate)}</td><td colspan="${columnCount-2}" class="title">Complement Details</td></tr>
+        <tr><td colspan="6" class="meta">Collection Center Name: ${esc(center)}</td><td colspan="6" class="meta">${esc(from)} To ${esc(to)}</td><td colspan="${columnCount-12}" class="meta">Doctor: ${esc(doctor)}</td></tr>
         <tr class="head">${headings.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>${body}
-        <tr class="total"><td colspan="6">Total</td>${totals}</tr>
+        <tr class="total"><td colspan="7">Total</td>${totals}</tr>
       </table></body></html>`;
       const blob=new Blob(['\uFEFF',html],{type:'application/vnd.ms-excel;charset=utf-8'});
       const url=URL.createObjectURL(blob);
@@ -1019,6 +1035,12 @@
     if(!doctorSelect.value && rawRows.length) generate();
   });
   doctorReportBtn.addEventListener('click',generate);
+  toggleCommissionBtn.addEventListener('click',()=>{
+    showCommissionColumns=!showCommissionColumns;
+    toggleCommissionBtn.textContent=showCommissionColumns ? 'Remove CPT & Gross Amt' : 'Show CPT & Gross Amt';
+    toggleCommissionBtn.className=showCommissionColumns ? 'btn-danger' : 'btn-secondary';
+    if(rawRows.length || el('mergeOldPdf').checked) generate();
+  });
   printBtn.addEventListener('click',()=>window.print());
 
   ['centerName','fromDate','toDate','reportDate','filterDates','grossFormula','blankAffWalkin'].forEach(id=>{
