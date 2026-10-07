@@ -435,7 +435,7 @@
   }
 
   function autoMap(){
-    if(!headers.length){ populateDoctors(); return; }
+    if(!headers.length){ populateDoctors(); populateCollectionCenters(); return; }
     REPORT_FIELDS.forEach(f => {
       const sel=el(`map_${f.key}`); if(!sel) return;
       let found=findHeader(f.key);
@@ -446,6 +446,7 @@
       else sel.value='__blank__';
     });
     populateDoctors();
+    populateCollectionCenters();
     showStatus('Columns auto-mapped. Please review CPT and Gross Amt mapping once.', 'ok');
   }
 
@@ -851,6 +852,8 @@
     }
 
     result.forEach(r=>{ if(!r.collectionCenter) r.collectionCenter=el('centerName').value.trim(); });
+    const selectedCenter=collectionCenterSelect.value;
+    if(selectedCenter) result=result.filter(r=>norm(r.collectionCenter)===norm(selectedCenter));
 
     result.sort((a,b)=>(a.rawDate?.getTime() || 0)-(b.rawDate?.getTime() || 0));
     result.forEach((r,i)=>{ r.sr=i+1; });
@@ -1023,7 +1026,8 @@
       const url=URL.createObjectURL(blob);
       const link=document.createElement('a');
       const safeDoctor=(doctorSelect.value || 'all-doctors').replace(/[^a-z0-9_-]+/gi,'-').replace(/^-|-$/g,'');
-      link.href=url; link.download=`complement-details-${safeDoctor || 'doctor'}.xls`;
+      const safeCenter=(collectionCenterSelect.value || 'all-centers').replace(/[^a-z0-9_-]+/gi,'-').replace(/^-|-$/g,'');
+      link.href=url; link.download=`complement-details-${safeCenter || 'center'}-${safeDoctor || 'doctor'}.xls`;
       document.body.appendChild(link); link.click(); link.remove();
       setTimeout(()=>URL.revokeObjectURL(url),1000);
       showStatus(`Excel downloaded with ${rows.length.toLocaleString('en-IN')} row(s).`, 'ok');
@@ -1052,12 +1056,16 @@
   excelBtn.addEventListener('click',downloadExcel);
   mappingBody.addEventListener('change',e=>{
     if(e.target.id==='map_affiliation') populateDoctors();
+    if(e.target.id==='map_collectionCenter') populateCollectionCenters();
   });
   doctorSelect.addEventListener('change',()=>{
     doctorReportBtn.classList.toggle('is-hidden', !doctorSelect.value);
     if(!doctorSelect.value && rawRows.length) generate();
   });
   doctorReportBtn.addEventListener('click',generate);
+  collectionCenterSelect.addEventListener('change',()=>{
+    if(rawRows.length || el('mergeOldPdf').checked) generate();
+  });
   toggleCommissionBtn.addEventListener('click',()=>{
     showCommissionColumns=!showCommissionColumns;
     toggleCommissionBtn.textContent=showCommissionColumns ? 'Remove CPT & Gross Amt' : 'Show CPT & Gross Amt';
@@ -1067,7 +1075,10 @@
   printBtn.addEventListener('click',()=>window.print());
 
   ['centerName','fromDate','toDate','reportDate','filterDates','grossFormula','blankAffWalkin'].forEach(id=>{
-    el(id).addEventListener('change',()=>{ if(rawRows.length) generate(); });
+    el(id).addEventListener('change',()=>{
+      if(id==='centerName') populateCollectionCenters();
+      if(rawRows.length) generate();
+    });
   });
   el('mergeOldPdf').addEventListener('change',()=>{
     populateDoctors();
@@ -1082,6 +1093,7 @@
   generateBtn.disabled=false;
   excelBtn.disabled=false;
   populateDoctors();
+  populateCollectionCenters();
 })();
 </script>
 </body>
