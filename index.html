@@ -72,22 +72,23 @@
   .range-label{white-space:nowrap}
   .range-label b{margin:0 4mm}
   .report-table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:6.35pt;line-height:1.15}
-  .report-table col.sr{width:2.4%}
-  .report-table col.lcode{width:6.1%}
-  .report-table col.date{width:7.3%}
-  .report-table col.patient{width:12.2%}
-  .report-table col.test{width:13.7%}
-  .report-table col.aff{width:6.2%}
-  .report-table col.b2b{width:4%}
-  .report-table col.collection{width:6.2%}
-  .report-table col.amount{width:4.8%}
-  .report-table col.disc{width:4.2%}
-  .report-table col.net{width:4.7%}
-  .report-table col.paid{width:4.5%}
-  .report-table col.bal{width:4.4%}
-  .report-table col.payment{width:4.5%}
-  .report-table col.cpt{width:5.2%}
-  .report-table col.gross{width:5.8%}
+  .report-table col.sr{width:2.5%}
+  .report-table col.lcode{width:5%}
+  .report-table col.date{width:6%}
+  .report-table col.patient{width:9%}
+  .report-table col.test{width:10%}
+  .report-table col.aff{width:5%}
+  .report-table col.b2b{width:3%}
+  .report-table col.b2b-center{width:4%}
+  .report-table col.collection{width:5%}
+  .report-table col.amount{width:4%}
+  .report-table col.disc{width:3%}
+  .report-table col.net{width:4%}
+  .report-table col.paid{width:4%}
+  .report-table col.bal{width:4%}
+  .report-table col.payment{width:3.5%}
+  .report-table col.cpt{width:5%}
+  .report-table col.gross{width:5.5%}
   .report-table thead th{background:var(--accent);padding:1.2mm .45mm;font-weight:700;text-align:left;white-space:nowrap;border:none;font-size:6.15pt}
   .report-table tbody td{padding:1.05mm .45mm .35mm;vertical-align:top;border:none;overflow-wrap:anywhere;word-break:normal}
   .report-table td.num,.report-table th.num{text-align:right;white-space:nowrap}
@@ -241,6 +242,7 @@
     {key:'test', label:'Test'},
     {key:'affiliation', label:'Affiliation'},
     {key:'b2b', label:'B2B'},
+    {key:'b2bCenter', label:'B2B Center'},
     {key:'collectionCenter', label:'Collection Center'},
     {key:'amount', label:'Amount', numeric:true},
     {key:'disc', label:'Disc', numeric:true},
@@ -262,7 +264,8 @@
     patient:['patient name','patient info','patient','name','customer name'],
     test:['test','tests','tests/packages','test/package','test packages','test name','selected test','search test name','package','package name'],
     affiliation:['affiliation company name','affiliation','referral doctor','ref doctor','doctor','ref. doctor','reference doctor','referred by','source'],
-    b2b:['b2b','b2b/b2c','business type','business category'],
+    b2b:['b2b','b2b/b2c','b2b type','business type','business category'],
+    b2bCenter:['b2b center','b2b centre','business center','business centre'],
     collectionCenter:['collection center','collection centre','center name','centre name','branch','branch name','location'],
     amount:['amount','gross amount','bill amount','total amount'],
     disc:['disc','discount','discount amount'],
@@ -295,7 +298,7 @@
     ['0009','2026-09-04','Vanita Khatik','CBC,TFT,RBS,*Vitamin B12','',1850,0,1850,850,1000,365,1485],
     ['0010','2026-09-04','Gaurav Kadu','CBC,RFT,Uric Acid,CAL,URINE EXAMINATION','',1450,0,1450,700,750,290,1160],
     ['0001','2026-09-05','Mina Rathod','Fasting Blood Sugar,Post Meal Blood Sugar','Dr.  A.V. Joshi Sir  MBBS FCGP',100,0,100,0,100,50,50]
-  ].map((r,i)=>({sr:i+1,lcode:r[0],date:fmtDisplayDate(r[1]),rawDate:parseDate(r[1]),patient:r[2],test:r[3],affiliation:r[4],b2b:'',collectionCenter:'',amount:r[5],disc:r[6],net:r[7],paid:r[8],bal:r[9],cash:0,upi:0,card:0,total:0,cpt:r[10],gross:r[11]}));
+  ].map((r,i)=>({sr:i+1,lcode:r[0],date:fmtDisplayDate(r[1]),rawDate:parseDate(r[1]),patient:r[2],test:r[3],affiliation:r[4],b2b:'',b2bCenter:'',collectionCenter:'',amount:r[5],disc:r[6],net:r[7],paid:r[8],bal:r[9],cash:0,upi:0,card:0,total:0,cpt:r[10],gross:r[11]}));
 
   let workbook = null;
   let rawRows = [];
@@ -398,6 +401,7 @@
       const idx=normalizedHeaders.indexOf(norm(a));
       if(idx>=0) return headers[idx];
     }
+    if(field==='b2b') return '';
     for(const a of targets){
       const an=norm(a);
       const idx=normalizedHeaders.findIndex(h => {
@@ -831,6 +835,7 @@
         test:cleanText(getVal(r,map.test,'')),
         affiliation:aff,
         b2b:cleanText(getVal(r,map.b2b,'')),
+        b2bCenter:cleanText(getVal(r,map.b2bCenter,'')),
         collectionCenter:cleanText(getVal(r,map.collectionCenter,'')) || el('centerName').value.trim(),
         amount,
         disc:toNum(getVal(r,map.disc,0)),
@@ -883,10 +888,10 @@
     const commissionHeads=showCommissionColumns ? '<th class="num">CPT</th><th class="num">Gross Amt</th>' : '';
     return `<table class="report-table">
       <colgroup>
-        <col class="sr"><col class="lcode"><col class="date"><col class="patient"><col class="test"><col class="aff"><col class="b2b"><col class="collection"><col class="amount"><col class="disc"><col class="net"><col class="paid"><col class="bal"><col class="payment"><col class="payment"><col class="payment"><col class="payment">${commissionCols}
+        <col class="sr"><col class="lcode"><col class="date"><col class="patient"><col class="test"><col class="aff"><col class="b2b"><col class="b2b-center"><col class="collection"><col class="amount"><col class="disc"><col class="net"><col class="paid"><col class="bal"><col class="payment"><col class="payment"><col class="payment"><col class="payment">${commissionCols}
       </colgroup>
       <thead><tr>
-        <th>Sr. No.</th><th>LCode</th><th>Date</th><th>Patient Name</th><th>Test</th><th>Affiliation</th><th>B2B</th><th>Collection Center</th>
+        <th>Sr. No.</th><th>LCode</th><th>Date</th><th>Patient Name</th><th>Test</th><th>Affiliation</th><th>B2B</th><th>B2B Center</th><th>Collection Center</th>
         <th class="num">Amount</th><th class="num">Disc</th><th class="num">Net</th><th class="num">Paid</th><th class="num">Bal.</th><th class="num">Cash</th><th class="num">UPI</th><th class="num">Card</th><th class="num">Total</th>${commissionHeads}
       </tr></thead><tbody>${body}</tbody></table>`;
   }
@@ -900,6 +905,7 @@
       <td>${esc(r.test)}</td>
       <td>${esc(r.affiliation)}</td>
       <td>${esc(r.b2b)}</td>
+      <td>${esc(r.b2bCenter)}</td>
       <td>${esc(r.collectionCenter)}</td>
       <td class="num">${fmtNum(r.amount)}</td>
       <td class="num">${fmtNum(r.disc)}</td>
@@ -921,7 +927,7 @@
       ['Balance','bal'],['Cash','cash'],['UPI','upi'],['Card','card'],['Total','total'],['CPT','cpt'],['Gross Amt','gross']
     ];
     if(!showCommissionColumns) totals=totals.filter(([,key])=>key!=='cpt' && key!=='gross');
-    return `<tr class="totals"><td colspan="${showCommissionColumns?19:17}"><div class="totals-grid" style="grid-template-columns:repeat(${totals.length},minmax(0,1fr))">${totals.map(([label,key])=>
+    return `<tr class="totals"><td colspan="${showCommissionColumns?20:18}"><div class="totals-grid" style="grid-template-columns:repeat(${totals.length},minmax(0,1fr))">${totals.map(([label,key])=>
       `<div class="total-item"><span class="total-label">${label}</span><span class="total-value">${fmtMoney2(s(key))}</span></div>`
     ).join('')}</div></td></tr>`;
   }
@@ -1008,10 +1014,10 @@
       const to=fmtDMY(el('toDate').value).replaceAll('/','-');
       const reportDate=fmtDMY(el('reportDate').value);
       const doctor=doctorSelect.value || 'All Doctors';
-      const headings=['Sr. No.','LCode','Date','Patient Name','Test','Affiliation','B2B','Collection Center','Amount','Disc','Net','Paid','Bal.','Cash','UPI','Card','Total'];
+      const headings=['Sr. No.','LCode','Date','Patient Name','Test','Affiliation','B2B','B2B Center','Collection Center','Amount','Disc','Net','Paid','Bal.','Cash','UPI','Card','Total'];
       if(showCommissionColumns) headings.push('CPT','Gross Amt');
       const body=rows.map(r=>`<tr>
-        ${excelCell(r.sr)}${excelCell(r.lcode)}${excelCell(r.date)}${excelCell(r.patient)}${excelCell(r.test)}${excelCell(r.affiliation)}${excelCell(r.b2b)}${excelCell(r.collectionCenter)}
+        ${excelCell(r.sr)}${excelCell(r.lcode)}${excelCell(r.date)}${excelCell(r.patient)}${excelCell(r.test)}${excelCell(r.affiliation)}${excelCell(r.b2b)}${excelCell(r.b2bCenter)}${excelCell(r.collectionCenter)}
         ${excelCell(r.amount,true)}${excelCell(r.disc,true)}${excelCell(r.net,true)}${excelCell(r.paid,true)}${excelCell(r.bal,true)}${excelCell(r.cash,true)}${excelCell(r.upi,true)}${excelCell(r.card,true)}${excelCell(r.total,true)}${showCommissionColumns ? excelCell(r.cpt,true)+excelCell(r.gross,true) : ''}
       </tr>`).join('');
       const totalKeys=['amount','disc','net','paid','bal','cash','upi','card','total'];
@@ -1025,7 +1031,7 @@
         <tr><td colspan="2" class="meta">Report Date: ${esc(reportDate)}</td><td colspan="${columnCount-2}" class="title">Complement Details</td></tr>
         <tr><td colspan="6" class="meta">Collection Center Name: ${esc(center)}</td><td colspan="6" class="meta">${esc(from)} To ${esc(to)}</td><td colspan="${columnCount-12}" class="meta">Doctor: ${esc(doctor)}</td></tr>
         <tr class="head">${headings.map(h=>`<th>${esc(h)}</th>`).join('')}</tr>${body}
-        <tr class="total"><td colspan="8">Total</td>${totals}</tr>
+        <tr class="total"><td colspan="9">Total</td>${totals}</tr>
       </table></body></html>`;
       const blob=new Blob(['\uFEFF',html],{type:'application/vnd.ms-excel;charset=utf-8'});
       const url=URL.createObjectURL(blob);
